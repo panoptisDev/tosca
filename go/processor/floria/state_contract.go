@@ -16,7 +16,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/Fantom-foundation/Tosca/go/tosca"
+	"github.com/0xsoniclabs/tosca/go/tosca"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"

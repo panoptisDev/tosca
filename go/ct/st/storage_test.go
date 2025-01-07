@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/Fantom-foundation/Tosca/go/ct/common"
+	. "github.com/0xsoniclabs/tosca/go/ct/common"
 )
 
 func TestStorage_NewStorage(t *testing.T) {

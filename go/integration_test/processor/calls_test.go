@@ -17,8 +17,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/Fantom-foundation/Tosca/go/tosca"
-	"github.com/Fantom-foundation/Tosca/go/tosca/vm"
+	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/0xsoniclabs/tosca/go/tosca/vm"
 )
 
 const sufficientGas = tosca.Gas(500_000_000_000)

@@ -18,9 +18,9 @@ import (
 
 	"pgregory.net/rand"
 
-	. "github.com/Fantom-foundation/Tosca/go/ct/common"
-	"github.com/Fantom-foundation/Tosca/go/ct/st"
-	"github.com/Fantom-foundation/Tosca/go/tosca/vm"
+	. "github.com/0xsoniclabs/tosca/go/ct/common"
+	"github.com/0xsoniclabs/tosca/go/ct/st"
+	"github.com/0xsoniclabs/tosca/go/tosca/vm"
 )
 
 // CodeGenerator is a utility class for generating Codes. See StateGenerator for

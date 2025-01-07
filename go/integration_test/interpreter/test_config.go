@@ -15,12 +15,12 @@ import (
 	"slices"
 	"strings"
 
-	_ "github.com/Fantom-foundation/Tosca/go/interpreter/evmone"
-	_ "github.com/Fantom-foundation/Tosca/go/interpreter/evmrs"
-	_ "github.com/Fantom-foundation/Tosca/go/interpreter/evmzero"
-	_ "github.com/Fantom-foundation/Tosca/go/interpreter/geth"
-	"github.com/Fantom-foundation/Tosca/go/interpreter/lfvm"
-	"github.com/Fantom-foundation/Tosca/go/tosca"
+	_ "github.com/0xsoniclabs/tosca/go/interpreter/evmone"
+	_ "github.com/0xsoniclabs/tosca/go/interpreter/evmrs"
+	_ "github.com/0xsoniclabs/tosca/go/interpreter/evmzero"
+	_ "github.com/0xsoniclabs/tosca/go/interpreter/geth"
+	"github.com/0xsoniclabs/tosca/go/interpreter/lfvm"
+	"github.com/0xsoniclabs/tosca/go/tosca"
 	"golang.org/x/exp/maps"
 )
 

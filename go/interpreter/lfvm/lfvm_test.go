@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Fantom-foundation/Tosca/go/tosca"
+	"github.com/0xsoniclabs/tosca/go/tosca"
 )
 
 func TestNewInterpreter_ProducesInstanceWithSanctionedProperties(t *testing.T) {

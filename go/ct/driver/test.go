@@ -15,10 +15,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	cliUtils "github.com/Fantom-foundation/Tosca/go/ct/driver/cli"
-	"github.com/Fantom-foundation/Tosca/go/ct/rlz"
-	"github.com/Fantom-foundation/Tosca/go/ct/spc"
-	"github.com/Fantom-foundation/Tosca/go/ct/st"
+	cliUtils "github.com/0xsoniclabs/tosca/go/ct/driver/cli"
+	"github.com/0xsoniclabs/tosca/go/ct/rlz"
+	"github.com/0xsoniclabs/tosca/go/ct/spc"
+	"github.com/0xsoniclabs/tosca/go/ct/st"
 	"github.com/dsnet/golib/unitconv"
 	"github.com/urfave/cli/v2"
 )

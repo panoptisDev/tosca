@@ -23,9 +23,9 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/Fantom-foundation/Tosca/go/geth_adapter"
-	geth_interpreter "github.com/Fantom-foundation/Tosca/go/interpreter/geth"
-	"github.com/Fantom-foundation/Tosca/go/tosca"
+	"github.com/0xsoniclabs/tosca/go/geth_adapter"
+	geth_interpreter "github.com/0xsoniclabs/tosca/go/interpreter/geth"
+	"github.com/0xsoniclabs/tosca/go/tosca"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"

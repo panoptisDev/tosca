@@ -21,8 +21,8 @@ import "C"
 import (
 	"fmt"
 
-	"github.com/Fantom-foundation/Tosca/go/interpreter/evmc"
-	"github.com/Fantom-foundation/Tosca/go/tosca"
+	"github.com/0xsoniclabs/tosca/go/interpreter/evmc"
+	"github.com/0xsoniclabs/tosca/go/tosca"
 )
 
 func init() {
