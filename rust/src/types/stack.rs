@@ -10,6 +10,24 @@ impl<const N: usize> NonZero<N> {
     const VALID: () = assert!(N > 0);
 }
 
+/// This type is created by calling [`Stack::pop_with_location`] and is intended to replace pushing
+/// to the stack directly. It and avoids the stack overflow check when pushing because it is no
+/// longer needed. [`PushLocation`] has to be consumed by pushing to it.
+/// If this does not happen, the program is still memory safe, however there will be one item so
+/// much on the stack.
+///
+/// Internally it is a wrapper around [`&mut u256`] that ensures that the only possible operation is
+/// to write once to this memory location.
+#[derive(Debug)]
+#[must_use = "PushLocation has to be pushed to."]
+pub struct PushLocation<'p>(&'p mut u256);
+
+impl PushLocation<'_> {
+    pub fn push(self, value: impl Into<u256>) {
+        *self.0 = value.into();
+    }
+}
+
 #[cfg(feature = "alloc-reuse")]
 static REUSABLE_STACK: Mutex<Vec<Vec<u256>>> = Mutex::new(Vec::new());
 
@@ -114,6 +132,28 @@ impl Stack {
         Ok(array)
     }
 
+    pub fn pop_with_location<const N: usize>(
+        &mut self,
+    ) -> Result<(PushLocation, [u256; N]), FailStatus> {
+        let () = const { NonZero::<N>::VALID };
+
+        self.check_underflow(N)?;
+
+        self.0.truncate(self.len() - (N - 1));
+        // SAFETY:
+        // This does not wrap and the whole range from start to start + self.len is valid.
+        let pop_start = unsafe { self.0.as_ptr().add(self.len() - 1) };
+        // SAFETY:
+        // The the first self.len elements are initialized (invariant).
+        // `self.len` just got decremented by N - 1, which means now that the first `self.len  +
+        // (N - 1)` elements are initialized. Therefore, it is safe to read N elements
+        // starting at index `self.len - 1` as an array of length N and type u256.
+        let pop_data = unsafe { *(pop_start as *const [u256; N]) };
+        let len = self.len();
+        let push_guard = PushLocation(&mut self.0[len - 1]);
+        Ok((push_guard, pop_data))
+    }
+
     pub fn peek(&self) -> Option<&u256> {
         self.0.last()
     }
@@ -176,6 +216,33 @@ mod tests {
 
         let mut stack = Stack::new(&[u256::MAX]);
         assert_eq!(stack.pop::<2>(), Err(FailStatus::StackUnderflow));
+    }
+
+    #[test]
+    fn pop_with_location() {
+        let mut stack = Stack::new(&[u256::MAX]);
+        let (guard, data) = stack.pop_with_location::<1>().unwrap();
+        assert_eq!(data, [u256::MAX]);
+        guard.push(u256::ONE);
+        assert_eq!(stack.as_slice(), [u256::ONE]);
+
+        let mut stack = Stack::new(&[]);
+        assert_eq!(
+            stack.pop_with_location::<1>().unwrap_err(),
+            FailStatus::StackUnderflow
+        );
+
+        let mut stack = Stack::new(&[u256::ONE, u256::MAX]);
+        let (guard, data) = stack.pop_with_location::<2>().unwrap();
+        assert_eq!(data, [u256::ONE, u256::MAX]);
+        guard.push(u256::ZERO);
+        assert_eq!(stack.as_slice(), [u256::ZERO]);
+
+        let mut stack = Stack::new(&[u256::MAX]);
+        assert_eq!(
+            stack.pop_with_location::<2>().unwrap_err(),
+            FailStatus::StackUnderflow
+        );
     }
 
     #[test]
