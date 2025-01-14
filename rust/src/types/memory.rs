@@ -43,12 +43,18 @@ impl Memory {
     }
 
     fn expand(&mut self, new_len_bytes: u64, gas_left: &mut Gas) -> Result<(), FailStatus> {
+        #[cold]
+        fn expand_raw(m: &mut Memory, new_len: u64, gas_left: &mut Gas) -> Result<(), FailStatus> {
+            let current_len = m.0.len() as u64;
+            m.consume_expansion_cost(new_len, gas_left)?;
+            m.0.extend(iter::repeat(0).take((new_len - current_len) as usize));
+            Ok(())
+        }
+
         let current_len = self.0.len() as u64;
         let new_len = word_size(new_len_bytes)? * 32; // word_size just did a division by 32 so * will not overflow
         if new_len > current_len {
-            self.consume_expansion_cost(new_len, gas_left)?;
-            self.0
-                .extend(iter::repeat(0).take((new_len - current_len) as usize));
+            expand_raw(self, new_len, gas_left)?;
         }
         Ok(())
     }
@@ -90,7 +96,17 @@ impl Memory {
         }
         self.expand(end, gas_left)?;
 
-        Ok(&mut self.0[offset as usize..end as usize])
+        let offset = offset as usize;
+        let end = end as usize;
+        #[cfg(feature = "unsafe-hints")]
+        // SAFETY:
+        // end = offset + len, so offset <= end
+        // end will always be in bounds because expand takes care of expanding the memory
+        // accordingly.
+        unsafe {
+            std::hint::assert_unchecked(offset <= end && end <= self.0.len());
+        }
+        Ok(&mut self.0[offset..end])
     }
 
     pub fn get_word(&mut self, offset: u256, gas_left: &mut Gas) -> Result<u256, FailStatus> {
