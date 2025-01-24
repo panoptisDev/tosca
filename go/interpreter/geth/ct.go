@@ -17,6 +17,7 @@ import (
 	"github.com/0xsoniclabs/tosca/go/ct/common"
 	"github.com/0xsoniclabs/tosca/go/ct/st"
 	"github.com/0xsoniclabs/tosca/go/ct/utils"
+	"github.com/0xsoniclabs/tosca/go/geth_adapter"
 	"github.com/0xsoniclabs/tosca/go/tosca"
 	geth_common "github.com/ethereum/go-ethereum/common"
 	geth_vm "github.com/ethereum/go-ethereum/core/vm"
@@ -41,7 +42,7 @@ func (a ctAdapter) StepN(state *st.State, numSteps int) (*st.State, error) {
 	}
 
 	evm, contract, stateDb := createGethInterpreterContext(parameters)
-	stateDb.refund = uint64(state.GasRefund)
+	stateDb.SetRefund(uint64(state.GasRefund))
 
 	evm.CallInterceptor = &callInterceptor{parameters, stateDb, state.ReadOnly}
 
@@ -141,7 +142,7 @@ func convertGethStackToCtStack(state *geth_vm.InterpreterState, stack *st.Stack)
 
 type callInterceptor struct {
 	parameters tosca.Parameters
-	stateDb    *stateDbAdapter
+	stateDb    *geth_adapter.StateDB
 	static     bool
 }
 
