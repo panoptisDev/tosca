@@ -12,6 +12,7 @@ package geth_processor
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/0xsoniclabs/tosca/go/geth_adapter"
@@ -47,6 +48,11 @@ func (p *Processor) Run(
 	transaction tosca.Transaction,
 	context tosca.TransactionContext,
 ) (tosca.Receipt, error) {
+	gasPrice, err := calculateGasPrice(blockParameters.BaseFee, transaction.GasFeeCap, transaction.GasTipCap)
+	if err != nil {
+		return tosca.Receipt{}, err
+	}
+
 	blockContext := newBlockContext(blockParameters, context)
 
 	var blobHashes []common.Hash
@@ -59,7 +65,7 @@ func (p *Processor) Run(
 
 	txContext := vm.TxContext{
 		Origin:     common.Address(transaction.Sender),
-		GasPrice:   transaction.GasPrice.ToBig(),
+		GasPrice:   gasPrice.ToBig(),
 		BlobHashes: blobHashes,
 		BlobFeeCap: transaction.BlobGasFeeCap.ToBig(),
 	}
@@ -68,7 +74,7 @@ func (p *Processor) Run(
 	config := newEVMConfig(p.interpreter, p.ethereumCompatible)
 	evm := vm.NewEVM(blockContext, txContext, stateDB, chainConfig, config)
 
-	msg := transactionToMessage(transaction, blockParameters.BaseFee, blobHashes)
+	msg := transactionToMessage(transaction, gasPrice, blobHashes)
 	gasPool := new(core.GasPool).AddGas(uint64(transaction.GasLimit))
 	result, err := core.ApplyMessage(evm, msg, gasPool)
 	if err != nil {
@@ -103,6 +109,13 @@ func (p *Processor) Run(
 		GasUsed:         tosca.Gas(result.UsedGas),
 		Logs:            logs,
 	}, nil
+}
+
+func calculateGasPrice(baseFee, gasFeeCap, gasTipCap tosca.Value) (tosca.Value, error) {
+	if gasFeeCap.Cmp(baseFee) < 0 {
+		return tosca.Value{}, fmt.Errorf("gasFeeCap %v is lower than baseFee %v", gasFeeCap, baseFee)
+	}
+	return tosca.Add(baseFee, tosca.Min(gasTipCap, tosca.Sub(gasFeeCap, baseFee))), nil
 }
 
 func newBlockContext(blockParameters tosca.BlockParameters, context tosca.TransactionContext) vm.BlockContext {
@@ -185,7 +198,7 @@ func newEVMConfig(interpreter tosca.Interpreter, ethereumCompatible bool) vm.Con
 	return config
 }
 
-func transactionToMessage(transaction tosca.Transaction, baseFee tosca.Value, blobHashes []common.Hash) *core.Message {
+func transactionToMessage(transaction tosca.Transaction, gasPrice tosca.Value, blobHashes []common.Hash) *core.Message {
 	accessList := types.AccessList{}
 	for _, tuple := range transaction.AccessList {
 		storageKeys := make([]common.Hash, len(tuple.Keys))
@@ -199,16 +212,14 @@ func transactionToMessage(transaction tosca.Transaction, baseFee tosca.Value, bl
 	}
 
 	return &core.Message{
-		From:     common.Address(transaction.Sender),
-		To:       (*common.Address)(transaction.Recipient),
-		Nonce:    transaction.Nonce,
-		Value:    transaction.Value.ToBig(),
-		GasLimit: uint64(transaction.GasLimit),
-		GasPrice: transaction.GasPrice.ToBig(),
-		// gas price computation and enforcement of cap is currently performed outside of processor
-		// TODO: extend the tosca.Transaction to include GasFeeCap and GasTipCap
-		GasFeeCap:         big.NewInt(0).Add(baseFee.ToBig(), big.NewInt(1)),
-		GasTipCap:         big.NewInt(0),
+		From:              common.Address(transaction.Sender),
+		To:                (*common.Address)(transaction.Recipient),
+		Nonce:             transaction.Nonce,
+		Value:             transaction.Value.ToBig(),
+		GasLimit:          uint64(transaction.GasLimit),
+		GasPrice:          gasPrice.ToBig(),
+		GasFeeCap:         transaction.GasFeeCap.ToBig(),
+		GasTipCap:         transaction.GasTipCap.ToBig(),
 		Data:              transaction.Input,
 		AccessList:        accessList,
 		BlobGasFeeCap:     transaction.BlobGasFeeCap.ToBig(),

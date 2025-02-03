@@ -117,10 +117,15 @@ func (p *processor) Run(
 		CanTransfer: canTransferFunc,
 	}
 
+	gasPrice, err := calculateGasPrice(blockParams.BaseFee, transaction.GasFeeCap, transaction.GasTipCap)
+	if err != nil {
+		return tosca.Receipt{}, err
+	}
+
 	// Create empty tx context
 	txCtx := geth.TxContext{
 		Origin:   common.Address(transaction.Sender),
-		GasPrice: new(big.Int).SetBytes(transaction.GasPrice[:]),
+		GasPrice: new(big.Int).SetBytes(gasPrice[:]),
 	}
 
 	// Create a configuration for the geth EVM.
@@ -176,7 +181,7 @@ func (p *processor) Run(
 	gas := transaction.GasLimit
 
 	// Check clauses 1-3, buy gas if everything is correct
-	if err := preCheck(transaction, context); err != nil {
+	if err := preCheck(transaction, context, gasPrice); err != nil {
 		return tosca.Receipt{}, err
 	}
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
@@ -264,7 +269,7 @@ func (p *processor) Run(
 	}
 
 	// refund remaining gas
-	refundGas(transaction, tosca.Gas(gasLeft), context)
+	refundGas(transaction, tosca.Gas(gasLeft), gasPrice, context)
 
 	// Extract log messages.
 	logs := make([]tosca.Log, 0)
@@ -289,6 +294,13 @@ func (p *processor) Run(
 	}, nil
 }
 
+func calculateGasPrice(baseFee, gasFeeCap, gasTipCap tosca.Value) (tosca.Value, error) {
+	if gasFeeCap.Cmp(baseFee) < 0 {
+		return tosca.Value{}, fmt.Errorf("gasFeeCap %v is lower than baseFee %v", gasFeeCap, baseFee)
+	}
+	return tosca.Add(baseFee, tosca.Min(gasTipCap, tosca.Sub(gasFeeCap, baseFee))), nil
+}
+
 var emptyCodeHash = keccak(nil)
 
 func keccak(data []byte) tosca.Hash {
@@ -299,7 +311,7 @@ func keccak(data []byte) tosca.Hash {
 	return res
 }
 
-func preCheck(transaction tosca.Transaction, state tosca.WorldState) error {
+func preCheck(transaction tosca.Transaction, state tosca.WorldState, gasPrice tosca.Value) error {
 	// Only check transactions that are not fake
 	// TODO: add support for non-checked transactions
 
@@ -321,14 +333,13 @@ func preCheck(transaction tosca.Transaction, state tosca.WorldState) error {
 	}
 
 	// Note: Opera doesn't need to check gasFeeCap >= BaseFee, because it's already checked by epochcheck
-	return buyGas(transaction, state)
+	return buyGas(transaction, state, gasPrice)
 }
 
-func buyGas(tx tosca.Transaction, state tosca.WorldState) error {
+func buyGas(tx tosca.Transaction, state tosca.WorldState, gasPrice tosca.Value) error {
 	// TODO: support arithmetic operations with Value type
-	gasPrice := tx.GasPrice.ToUint256()
 	mgval := uint256.NewInt(uint64(tx.GasLimit))
-	mgval = mgval.Mul(mgval, gasPrice)
+	mgval = mgval.Mul(mgval, gasPrice.ToUint256())
 	// Note: Opera doesn't need to check against gasFeeCap instead of gasPrice, as it's too aggressive in the asynchronous environment
 	balance := state.GetBalance(tx.Sender)
 	if have, want := balance.ToUint256(), mgval; have.Cmp(want) < 0 {
@@ -351,10 +362,10 @@ func buyGas(tx tosca.Transaction, state tosca.WorldState) error {
 	return nil
 }
 
-func refundGas(tx tosca.Transaction, gasLeft tosca.Gas, state tosca.WorldState) {
+func refundGas(tx tosca.Transaction, gasLeft tosca.Gas, gasPrice tosca.Value, state tosca.WorldState) {
 
 	// Return wei for remaining gas, exchanged at the original rate.
-	refund := new(uint256.Int).Mul(new(uint256.Int).SetUint64(uint64(gasLeft)), tx.GasPrice.ToUint256())
+	refund := new(uint256.Int).Mul(new(uint256.Int).SetUint64(uint64(gasLeft)), gasPrice.ToUint256())
 
 	cur := state.GetBalance(tx.Sender)
 	updated := new(uint256.Int).Add(cur.ToUint256(), refund)
