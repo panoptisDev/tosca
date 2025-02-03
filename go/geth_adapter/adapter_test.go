@@ -261,7 +261,6 @@ func TestRunContextAdapter_AccountOperations(t *testing.T) {
 	adapter := &runContextAdapter{evm: &geth.EVM{StateDB: stateDb}}
 
 	address := tosca.Address{0x42}
-	code := tosca.Code{1, 2, 3}
 
 	stateDb.EXPECT().AddressInAccessList(gc.Address(address)).Return(false)
 	stateDb.EXPECT().AddAddressToAccessList(gc.Address(address))
@@ -276,13 +275,11 @@ func TestRunContextAdapter_AccountOperations(t *testing.T) {
 		t.Errorf("Account should exist")
 	}
 
+	// Ensure that both CreateAccount and CreateContract are called when the account does not exist
 	stateDb.EXPECT().Exist(gc.Address(address)).Return(false)
 	stateDb.EXPECT().CreateAccount(gc.Address(address))
-	stateDb.EXPECT().SetCode(gc.Address(address), code)
-	created := adapter.CreateAccount(address, code)
-	if !created {
-		t.Errorf("Account should have been created")
-	}
+	stateDb.EXPECT().CreateContract(gc.Address(address))
+	adapter.CreateAccount(address)
 
 	stateDb.EXPECT().AddressInAccessList(gc.Address(address)).Return(true)
 	inAccessList := adapter.IsAddressInAccessList(address)
