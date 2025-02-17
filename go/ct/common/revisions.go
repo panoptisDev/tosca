@@ -17,7 +17,7 @@ import (
 )
 
 // Newest tosca.Revision currently supported by the CT specification
-const NewestSupportedRevision = tosca.R13_Cancun
+const NewestSupportedRevision = tosca.R14_Prague
 const NewestFullySupportedRevision = tosca.R13_Cancun
 
 const R99_UnknownNextRevision = tosca.Revision(99)
@@ -42,8 +42,10 @@ func GetForkBlock(revision tosca.Revision) uint64 {
 		return 4000
 	case tosca.R13_Cancun:
 		return 5000
-	default: // R99_UnknownNextRevision:
+	case tosca.R14_Prague:
 		return 6000
+	default: // R99_UnknownNextRevision:
+		return 7000
 	}
 }
 
@@ -66,8 +68,10 @@ func GetForkTime(revision tosca.Revision) uint64 {
 		return 4000
 	case tosca.R13_Cancun:
 		return 5000
-	default:
+	case tosca.R14_Prague:
 		return 6000
+	default:
+		return 7000
 	}
 }
 
@@ -98,4 +102,12 @@ func GetBlockRangeLengthFor(revision tosca.Revision) (uint64, error) {
 		revisionNumberRange = nextRevisionNumber - revisionNumber
 	}
 	return revisionNumberRange, nil
+}
+
+func AllSupportedRevisions() []tosca.Revision {
+	revisions := []tosca.Revision{}
+	for i := tosca.R07_Istanbul; i <= NewestFullySupportedRevision; i++ {
+		revisions = append(revisions, i)
+	}
+	return revisions
 }
