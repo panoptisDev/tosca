@@ -24,10 +24,11 @@ import (
 )
 
 type AccountsGenerator struct {
-	emptyAccounts []emptyConstraint
-	minBalance    []balanceConstraint
-	maxBalance    []balanceConstraint
-	warmCold      []warmColdConstraint
+	emptyAccounts        []emptyConstraint
+	minBalance           []balanceConstraint
+	maxBalance           []balanceConstraint
+	warmCold             []warmColdConstraint
+	delegationDesignator []delegationDesignatorConstraint
 }
 
 func NewAccountGenerator() *AccountsGenerator {
@@ -36,10 +37,11 @@ func NewAccountGenerator() *AccountsGenerator {
 
 func (g *AccountsGenerator) Clone() *AccountsGenerator {
 	return &AccountsGenerator{
-		emptyAccounts: slices.Clone(g.emptyAccounts),
-		warmCold:      slices.Clone(g.warmCold),
-		minBalance:    slices.Clone(g.minBalance),
-		maxBalance:    slices.Clone(g.maxBalance),
+		emptyAccounts:        slices.Clone(g.emptyAccounts),
+		warmCold:             slices.Clone(g.warmCold),
+		minBalance:           slices.Clone(g.minBalance),
+		maxBalance:           slices.Clone(g.maxBalance),
+		delegationDesignator: slices.Clone(g.delegationDesignator),
 	}
 }
 
@@ -51,6 +53,7 @@ func (g *AccountsGenerator) Restore(other *AccountsGenerator) {
 	g.warmCold = slices.Clone(other.warmCold)
 	g.minBalance = slices.Clone(other.minBalance)
 	g.maxBalance = slices.Clone(other.maxBalance)
+	g.delegationDesignator = slices.Clone(other.delegationDesignator)
 }
 
 func (g *AccountsGenerator) BindToAddressOfEmptyAccount(address Variable) {
@@ -95,6 +98,20 @@ func (g *AccountsGenerator) BindCold(address Variable) {
 	}
 }
 
+func (g *AccountsGenerator) BindToAddressOfDelegatingAccount(address Variable, delegateAccountStatus tosca.AccessStatus) {
+	v := delegationDesignatorConstraint{address, true, delegateAccountStatus}
+	if !slices.Contains(g.delegationDesignator, v) {
+		g.delegationDesignator = append(g.delegationDesignator, v)
+	}
+}
+
+func (g *AccountsGenerator) BindToAddressOfNotDelegatingAccount(address Variable) {
+	v := delegationDesignatorConstraint{address: address, isDelegated: false}
+	if !slices.Contains(g.delegationDesignator, v) {
+		g.delegationDesignator = append(g.delegationDesignator, v)
+	}
+}
+
 func (g *AccountsGenerator) String() string {
 	var parts []string
 
@@ -132,18 +149,63 @@ func (g *AccountsGenerator) String() string {
 		parts = append(parts, fmt.Sprintf("balance(%v) ≤ %v", con.address, con.value.DecimalString()))
 	}
 
+	sort.Slice(g.delegationDesignator, func(i, j int) bool {
+		return g.delegationDesignator[i].Less(&g.delegationDesignator[j])
+	})
+	for _, con := range g.delegationDesignator {
+		parts = append(parts, con.String())
+	}
+
 	return "{" + strings.Join(parts, ",") + "}"
 }
 
 func (g *AccountsGenerator) Generate(assignment Assignment, rnd *rand.Rand, accountAddress tosca.Address) (*st.Accounts, error) {
+
+	// This closure checks whenever to variables
+	// are the same variable or are already bound to the same value
+	areVariablesClashing := func(a, b Variable) bool {
+		if a == b {
+			return true
+		}
+		if aValue, isBoundA := assignment[a]; isBoundA {
+			if bValue, isBoundB := assignment[b]; isBoundB {
+				return aValue == bValue
+			}
+		}
+		return false
+	}
+
 	// Check for conflicts among empty constraints.
 	sort.Slice(g.emptyAccounts, func(i, j int) bool {
 		return g.emptyAccounts[i].Less(&g.emptyAccounts[j])
 	})
 	for i := 0; i < len(g.emptyAccounts)-1; i++ {
 		a, b := g.emptyAccounts[i], g.emptyAccounts[i+1]
-		if a.address == b.address && a.empty != b.empty {
+		if areVariablesClashing(a.address, b.address) && a.empty != b.empty {
 			return nil, fmt.Errorf("%w, address %v conflicting empty constraints", ErrUnsatisfiable, a.address)
+		}
+	}
+
+	// Check for conflicts among delegation designator constraints.
+	sort.Slice(g.delegationDesignator, func(i, j int) bool {
+		return g.delegationDesignator[i].Less(&g.delegationDesignator[j])
+	})
+	for i := 0; i < len(g.delegationDesignator)-1; i++ {
+		a, b := g.delegationDesignator[i], g.delegationDesignator[i+1]
+		// if a delegation designator constraint is conflicting with another one
+		// by having the same target address but different access kind or enabled
+		if areVariablesClashing(a.address, b.address) &&
+			(a.isDelegated != b.isDelegated || a.delegateAccountStatus != b.delegateAccountStatus) {
+			return nil, fmt.Errorf("%w, address %v conflicting delegation designator constraints", ErrUnsatisfiable, a.address)
+		}
+	}
+
+	// Check for conflicts among empty constraints and delegation designator constraints.
+	for _, ddCon := range g.delegationDesignator {
+		if slices.ContainsFunc(g.emptyAccounts, func(c emptyConstraint) bool {
+			return areVariablesClashing(c.address, ddCon.address) && c.empty
+		}) {
+			return nil, fmt.Errorf("%w, address %v conflicting delegation designator - empty constraints", ErrUnsatisfiable, ddCon.address)
 		}
 	}
 
@@ -151,7 +213,7 @@ func (g *AccountsGenerator) Generate(assignment Assignment, rnd *rand.Rand, acco
 	sort.Slice(g.warmCold, func(i, j int) bool { return g.warmCold[i].Less(&g.warmCold[j]) })
 	for i := 0; i < len(g.warmCold)-1; i++ {
 		a, b := g.warmCold[i], g.warmCold[i+1]
-		if a.key == b.key && a.warm != b.warm {
+		if areVariablesClashing(a.key, b.key) && a.warm != b.warm {
 			return nil, fmt.Errorf("%w, address %v conflicting warm/cold constraints", ErrUnsatisfiable, a.key)
 		}
 	}
@@ -238,6 +300,22 @@ func (g *AccountsGenerator) Generate(assignment Assignment, rnd *rand.Rand, acco
 		accountsBuilder,
 	); err != nil {
 		return nil, err
+	}
+
+	// Add delegation designator constraints.
+	// see: https://eips.ethereum.org/EIPS/eip-7702
+	for _, con := range g.delegationDesignator {
+		calleeAddress := getBoundOrBindNewAddress(con.address)
+		if con.isDelegated {
+			addr := getUnusedAddress()
+			accountsBuilder.SetCode(calleeAddress, NewDelegationDesignator(addr))
+			if con.delegateAccountStatus == tosca.WarmAccess {
+				accountsBuilder.SetWarm(addr)
+			}
+		} else {
+			// any code segment not being a delegation designator
+			accountsBuilder.SetCode(calleeAddress, NewBytes([]byte{0xab, 0xcd}))
+		}
 	}
 
 	// Some random entries.
@@ -343,4 +421,30 @@ func (a *balanceConstraint) Less(b *balanceConstraint) bool {
 		return a.address < b.address
 	}
 	return a.value.Lt(b.value)
+}
+
+type delegationDesignatorConstraint struct {
+	address               Variable
+	isDelegated           bool
+	delegateAccountStatus tosca.AccessStatus
+}
+
+func (a *delegationDesignatorConstraint) Less(b *delegationDesignatorConstraint) bool {
+	if a.address != b.address {
+		return a.address < b.address
+	}
+	if a.isDelegated != b.isDelegated {
+		return !a.isDelegated && b.isDelegated
+	}
+	return bool(!a.delegateAccountStatus && b.delegateAccountStatus)
+}
+
+func (a *delegationDesignatorConstraint) String() string {
+	if !a.isDelegated {
+		return fmt.Sprintf("!isDelegated(%v)", a.address)
+	}
+	if a.delegateAccountStatus == tosca.WarmAccess {
+		return fmt.Sprintf("isDelegated(%v),warm(delegateOf(%v))", a.address, a.address)
+	}
+	return fmt.Sprintf("isDelegated(%v),cold(delegateOf(%v))", a.address, a.address)
 }
