@@ -12,16 +12,17 @@ package lfvm
 
 import (
 	"bytes"
+	"errors"
 	"math"
 	"math/rand"
 	"slices"
-	"sync"
 	"testing"
 	"time"
 	"unsafe"
 
 	"github.com/0xsoniclabs/tosca/go/tosca"
 	"github.com/0xsoniclabs/tosca/go/tosca/vm"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestNewConverter_UsesDefaultCapacity(t *testing.T) {
@@ -48,7 +49,10 @@ func TestNewConverter_CacheCanBeDisabled(t *testing.T) {
 		t.Errorf("Expected cache to be disabled")
 	}
 	// Conversion should still work without a nil pointer dereference.
-	converter.Convert([]byte{0}, &tosca.Hash{0})
+	_, err = converter.Convert([]byte{0}, &tosca.Hash{0})
+	if err != nil {
+		t.Fatalf("failed to convert code: %v", err)
+	}
 }
 
 func TestNewConverter_TooSmallCapacityLeadsToCreationIssues(t *testing.T) {
@@ -65,7 +69,46 @@ func TestConverter_LongExampleCode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create converter: %v", err)
 	}
-	converter.Convert(longExampleCode, nil)
+	_, err = converter.Convert(longExampleCode, nil)
+	if err != nil {
+		t.Fatalf("failed to convert code: %v", err)
+	}
+}
+
+func TestConverter_CodeLargerThanMaxUint16ReturnsAnError(t *testing.T) {
+	tests := map[string]struct {
+		codeSize int
+		err      error
+	}{
+		"small code": {
+			codeSize: math.MaxUint16 - 1,
+			err:      nil,
+		},
+		"exact code": {
+			codeSize: math.MaxUint16,
+			err:      nil,
+		},
+		"large code": {
+			codeSize: math.MaxUint16 + 1,
+			err:      errCodeSizeExceeded,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := config{
+				ConversionConfig: ConversionConfig{},
+			}
+			vm, err := newVm(config)
+			if err != nil {
+				t.Fatalf("unexpected error")
+			}
+			_, err = vm.Run(tosca.Parameters{Code: make([]byte, test.codeSize)})
+			if !errors.Is(err, test.err) {
+				t.Fatalf("unexpected error: want %v, got %v", test.err, err)
+			}
+		})
+	}
 }
 
 func TestConverter_InputsAreCachedUsingHashAsKey(t *testing.T) {
@@ -75,8 +118,15 @@ func TestConverter_InputsAreCachedUsingHashAsKey(t *testing.T) {
 	}
 	code := []byte{byte(vm.STOP)}
 	hash := tosca.Hash{byte(1)}
-	want := converter.Convert(code, &hash)
-	got := converter.Convert(code, &hash)
+	want, err := converter.Convert(code, &hash)
+	if err != nil {
+		t.Fatalf("failed to convert code: %v", err)
+
+	}
+	got, err := converter.Convert(code, &hash)
+	if err != nil {
+		t.Fatalf("failed to convert code: %v", err)
+	}
 	if &want[0] != &got[0] { // < it needs to be the same slice
 		t.Errorf("cached conversion result not returned")
 	}
@@ -93,7 +143,10 @@ func TestConverter_CacheSizeLimitIsEnforced(t *testing.T) {
 		}
 		for i := 0; i < limit*10; i++ {
 			hash := tosca.Hash{byte(i), byte(i >> 8), byte(i >> 16)}
-			converter.Convert([]byte{0}, &hash)
+			_, err = converter.Convert([]byte{0}, &hash)
+			if err != nil {
+				t.Fatalf("failed to convert code: %v", err)
+			}
 		}
 		if got := len(converter.cache.Keys()); got > limit {
 			t.Errorf("Conversion cache grew to %d entries", got)
@@ -109,12 +162,18 @@ func TestConverter_ExceedinglyLongCodesAreNotCached(t *testing.T) {
 	if want, got := 0, len(converter.cache.Keys()); want != got {
 		t.Errorf("Expected %d entries in the cache, got %d", want, got)
 	}
-	converter.Convert([]byte{0}, &tosca.Hash{0})
+	_, err = converter.Convert([]byte{0}, &tosca.Hash{0})
+	if err != nil {
+		t.Fatalf("failed to convert code: %v", err)
+	}
 	if want, got := 1, len(converter.cache.Keys()); want != got {
 		t.Errorf("Expected %d entries in the cache, got %d", want, got)
 	}
 	// Codes with an excessive length should not be cached.
-	converter.Convert(make([]byte, maxCachedCodeLength+1), &tosca.Hash{1})
+	_, err = converter.Convert(make([]byte, maxCachedCodeLength+1), &tosca.Hash{1})
+	if err != nil {
+		t.Fatalf("failed to convert code: %v", err)
+	}
 	if want, got := 1, len(converter.cache.Keys()); want != got {
 		t.Errorf("Expected %d entries in the cache, got %d", want, got)
 	}
@@ -127,7 +186,10 @@ func TestConverter_ResultsAreCached(t *testing.T) {
 	}
 	code := []byte{byte(vm.STOP)}
 	hash := tosca.Hash{byte(1)}
-	want := converter.Convert(code, &hash)
+	want, err := converter.Convert(code, &hash)
+	if err != nil {
+		t.Fatalf("failed to convert code: %v", err)
+	}
 	if got, found := converter.cache.Get(hash); !found || !slices.Equal(want, got) {
 		t.Errorf("converted code not added to cache")
 	}
@@ -147,20 +209,29 @@ func TestConverter_ConverterIsThreadSafe(t *testing.T) {
 	code := []byte{byte(vm.STOP)}
 	hash := tosca.Hash{byte(1)}
 
-	var wg sync.WaitGroup
-	wg.Add(NumGoroutines)
-	for i := 0; i < NumGoroutines; i++ {
-		go func(i int) {
-			defer wg.Done()
+	errs, _ := errgroup.WithContext(t.Context())
+	errs.SetLimit(NumGoroutines)
+	for i := range NumGoroutines {
+		errs.Go(func() error {
 			for j := 0; j < NumSteps; j++ {
 				// read a value every go routine is requesting
-				converter.Convert(code, &hash)
+				_, routineErr := converter.Convert(code, &hash)
+				if routineErr != nil {
+					return routineErr
+				}
 				// convert a value only this go routine is requesting
-				converter.Convert(code, &tosca.Hash{byte(i), byte(j)})
+				_, routineErr = converter.Convert(code, &tosca.Hash{byte(i), byte(j)})
+				if routineErr != nil {
+					return routineErr
+				}
 			}
-		}(i)
+			return nil
+		})
 	}
-	wg.Wait()
+	err = errs.Wait()
+	if err != nil {
+		t.Fatalf("failed to run converter: %v", err)
+	}
 }
 
 func TestConvertWithObserver_MapsEvmToLfvmPositions(t *testing.T) {
@@ -435,7 +506,10 @@ func benchmarkConvertCode(b *testing.B, code []byte, config ConversionConfig) {
 		b.Fatalf("failed to create converter: %v", err)
 	}
 	for i := 0; i < b.N; i++ {
-		converter.Convert(code, nil)
+		_, err = converter.Convert(code, nil)
+		if err != nil {
+			b.Fatalf("failed to convert code: %v", err)
+		}
 	}
 }
 
@@ -456,7 +530,10 @@ func BenchmarkConversionCacheLookupSpeed(b *testing.B) {
 	}
 	hash := &tosca.Hash{0}
 	for i := 0; i < b.N; i++ {
-		converter.Convert(nil, hash)
+		_, err = converter.Convert(nil, hash)
+		if err != nil {
+			b.Fatalf("failed to convert code: %v", err)
+		}
 	}
 }
 
@@ -469,6 +546,9 @@ func BenchmarkConversionCacheUpdateSpeed(b *testing.B) {
 	}
 	for i := 0; i < b.N; i++ {
 		hash := tosca.Hash{byte(i), byte(i >> 8), byte(i >> 16), byte(i >> 24)}
-		converter.Convert(nil, &hash)
+		_, err = converter.Convert(nil, &hash)
+		if err != nil {
+			b.Fatalf("failed to convert code: %v", err)
+		}
 	}
 }
