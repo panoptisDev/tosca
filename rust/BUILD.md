@@ -15,6 +15,9 @@
     cargo build --lib --profile profiling --features performance
     ```
 
+NOTE: The maximum size of the code analysis and hash cache can be modified by calling the set_option method on the interpreter with the key `code-analysis-cache-size` / `hash-cache-size` and the desired size.
+The size is measured in the number of elements not the number of bytes.
+
 ## Lint
 
 To run the [Rust linter](https://doc.rust-lang.org/clippy/) on the whole project run:

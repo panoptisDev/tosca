@@ -1,7 +1,7 @@
 use std::process;
 
 use evmc_vm::{
-    EvmcVm, ExecutionContext, ExecutionMessage, ExecutionResult, Revision,
+    EvmcVm, ExecutionContext, ExecutionMessage, ExecutionResult, Revision, SetOptionError,
     StatusCode as EvmcStatusCode, StepResult, StepStatusCode as EvmcStepStatusCode,
     SteppableEvmcVm, Uint256, ffi::evmc_capabilities,
 };
@@ -9,17 +9,26 @@ use evmc_vm::{
 use crate::{
     ffi::EVMC_CAPABILITY,
     interpreter::Interpreter,
-    types::{LoggingObserver, Memory, NoOpObserver, ObserverType, Stack, u256},
+    types::{
+        CodeAnalysisCache, LoggingObserver, Memory, NoOpObserver, ObserverType, Stack,
+        hash_cache::HashCache, u256,
+    },
 };
 
 pub struct EvmRs {
     observer_type: ObserverType,
+    hash_cache: HashCache,
+    code_analysis_cache_steppable: CodeAnalysisCache<true>,
+    code_analysis_cache_non_steppable: CodeAnalysisCache<false>,
 }
 
 impl EvmcVm for EvmRs {
     fn init() -> Self {
         EvmRs {
             observer_type: ObserverType::NoOp,
+            hash_cache: HashCache::default(),
+            code_analysis_cache_steppable: CodeAnalysisCache::default(),
+            code_analysis_cache_non_steppable: CodeAnalysisCache::default(),
         }
     }
 
@@ -39,17 +48,39 @@ impl EvmcVm for EvmRs {
             // If this is not the case it violates the EVMC spec and is an irrecoverable error.
             process::abort();
         };
-        let interpreter = Interpreter::new(revision, message, context, code);
+        let interpreter = Interpreter::new(
+            revision,
+            message,
+            context,
+            code,
+            &self.code_analysis_cache_non_steppable,
+            &self.hash_cache,
+        );
         match self.observer_type {
             ObserverType::NoOp => interpreter.run(&mut NoOpObserver()),
             ObserverType::Logging => interpreter.run(&mut LoggingObserver::new(std::io::stdout())),
         }
     }
 
-    fn set_option(&mut self, key: &str, value: &str) -> Result<(), evmc_vm::SetOptionError> {
+    fn set_option(&mut self, key: &str, value: &str) -> Result<(), SetOptionError> {
         match (key, value) {
             ("logging", "true") => self.observer_type = ObserverType::Logging,
             ("logging", "false") => self.observer_type = ObserverType::NoOp,
+            ("code-analysis-cache-size", size) => {
+                if let Ok(size) = size.parse::<usize>() {
+                    self.code_analysis_cache_steppable = CodeAnalysisCache::new(size);
+                    self.code_analysis_cache_non_steppable = CodeAnalysisCache::new(size);
+                } else {
+                    return Err(SetOptionError::InvalidValue);
+                }
+            }
+            ("hash-cache-size", size) => {
+                if let Ok(size) = size.parse::<usize>() {
+                    self.hash_cache = HashCache::new(size);
+                } else {
+                    return Err(SetOptionError::InvalidValue);
+                }
+            }
             _ => (),
         }
         Ok(())
@@ -113,10 +144,49 @@ impl SteppableEvmcVm for EvmRs {
             memory,
             Box::from(last_call_return_data),
             Some(steps),
+            &self.code_analysis_cache_steppable,
+            &self.hash_cache,
         );
         match self.observer_type {
             ObserverType::NoOp => interpreter.run(&mut NoOpObserver()),
             ObserverType::Logging => interpreter.run(&mut LoggingObserver::new(std::io::stdout())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use evmc_vm::EvmcVm;
+
+    use crate::evmrs::EvmRs;
+
+    #[test]
+    fn set_option_with_cache_sizes_correctly_handles_input() {
+        let mut evm = EvmRs::init();
+
+        assert!(evm.set_option("code-analysis-cache-size", "100").is_ok());
+        #[cfg(feature = "code-analysis-cache")]
+        {
+            assert_eq!(evm.code_analysis_cache_steppable.capacity(), 100);
+            assert_eq!(evm.code_analysis_cache_non_steppable.capacity(), 100);
+        }
+
+        assert!(
+            evm.set_option("code-analysis-cache-size", "invalid")
+                .is_err()
+        );
+        #[cfg(feature = "code-analysis-cache")]
+        {
+            assert_eq!(evm.code_analysis_cache_steppable.capacity(), 100);
+            assert_eq!(evm.code_analysis_cache_non_steppable.capacity(), 100);
+        }
+
+        assert!(evm.set_option("hash-cache-size", "100").is_ok());
+        #[cfg(feature = "hash-cache")]
+        assert_eq!(evm.hash_cache.capacity(), 100);
+
+        assert!(evm.set_option("hash-cache-size", "invalid").is_err());
+        #[cfg(feature = "hash-cache")]
+        assert_eq!(evm.hash_cache.capacity(), 100);
     }
 }
