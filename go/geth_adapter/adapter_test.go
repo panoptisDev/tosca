@@ -26,6 +26,7 @@ import (
 	geth "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -399,17 +400,6 @@ func TestRunContextAdapter_Call_LeftGasOverflowLeadsToZeroGas(t *testing.T) {
 	}
 }
 
-func newEVMWithPassingChainConfig() *geth.EVM {
-	chainConfig := &params.ChainConfig{
-		ChainID:       big.NewInt(42),
-		IstanbulBlock: big.NewInt(24),
-	}
-	blockContext := geth.BlockContext{
-		BlockNumber: big.NewInt(24),
-	}
-	return geth.NewEVM(blockContext, nil, chainConfig, geth.Config{})
-}
-
 func TestRunContextAdapter_getPrevRandaoReturnsHashBasedOnRevision(t *testing.T) {
 	tests := map[string]struct {
 		revision tosca.Revision
@@ -546,6 +536,182 @@ func TestRunContextAdapter_Run(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGethAdapter_CorruptValuesReturnErrors(t *testing.T) {
+	tests := map[string]struct {
+		firstBlock  *big.Int
+		baseFee     *big.Int
+		chainID     *big.Int
+		blobBaseFee *big.Int
+		gasPrice    *big.Int
+		difficulty  *big.Int
+	}{
+		"revision": {
+			firstBlock: big.NewInt(1000),
+		},
+		"baseFee": {
+			baseFee: big.NewInt(-1),
+		},
+		"chainID": {
+			chainID: big.NewInt(-1),
+		},
+		"blobBaseFee": {
+			blobBaseFee: big.NewInt(-1),
+		},
+		"gasPrice": {
+			gasPrice: big.NewInt(-1),
+		},
+		"difficulty": {
+			difficulty: big.NewInt(-1),
+		},
+	}
+
+	for name, test := range tests {
+		t.Run("unsupported-"+name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			stateDb := NewMockStateDb(ctrl)
+			interpreter := tosca.NewMockInterpreter(ctrl)
+
+			blockNumber := int64(42)
+			blockParameters := geth.BlockContext{
+				BlockNumber: big.NewInt(blockNumber),
+				BaseFee:     test.baseFee,
+				BlobBaseFee: test.blobBaseFee,
+				Difficulty:  test.difficulty,
+			}
+			if test.firstBlock == nil {
+				test.firstBlock = big.NewInt(1)
+			}
+			chainConfig := &params.ChainConfig{ChainID: test.chainID, IstanbulBlock: test.firstBlock}
+			evm := geth.NewEVM(blockParameters, stateDb, chainConfig, geth.Config{})
+			evm.TxContext = geth.TxContext{
+				GasPrice: test.gasPrice,
+			}
+
+			adapter := &gethInterpreterAdapter{
+				evm:         evm,
+				interpreter: interpreter,
+			}
+
+			stateDb.EXPECT().AddRefund(gomock.Any())
+
+			address := tosca.Address{0x42}
+			contract := geth.NewContract(common.Address(address), common.Address(address), nil, 0, nil)
+
+			ret, err := adapter.Run(contract, nil, false)
+			require.Error(t, err, "could not convert"+name)
+			require.Nil(t, ret, "expected nil return value")
+		})
+	}
+}
+
+func TestGethAdapter_CallForwardsToTheRightKind(t *testing.T) {
+	sender := common.Address{0x42}
+	recipient := common.Address{0x43}
+	codeAddress := common.Address{0x44}
+	input := []byte{0x01, 0x02, 0x03}
+	gas := uint64(1000)
+	value := uint256.NewInt(100)
+	salt := uint256.NewInt(200)
+
+	any := gomock.Any()
+	tests := map[string]struct {
+		kind  tosca.CallKind
+		setup func(mock *MockCallContextInterceptor)
+	}{
+		"call": {
+			kind: tosca.Call,
+			setup: func(mock *MockCallContextInterceptor) {
+				mock.EXPECT().Call(any, sender, recipient, input, gas, value)
+			},
+		},
+		"delegateCall": {
+			kind: tosca.DelegateCall,
+			setup: func(mock *MockCallContextInterceptor) {
+				mock.EXPECT().DelegateCall(any, sender, codeAddress, input, gas)
+			},
+		},
+		"staticCall": {
+			kind: tosca.StaticCall,
+			setup: func(mock *MockCallContextInterceptor) {
+				mock.EXPECT().StaticCall(any, sender, recipient, input, gas)
+			},
+		},
+		"callCode": {
+			kind: tosca.CallCode,
+			setup: func(mock *MockCallContextInterceptor) {
+				mock.EXPECT().CallCode(any, sender, codeAddress, input, gas, value)
+			},
+		},
+
+		"create": {
+			kind: tosca.Create,
+			setup: func(mock *MockCallContextInterceptor) {
+				mock.EXPECT().Create(any, sender, input, gas, value)
+			},
+		},
+		"create2": {
+			kind: tosca.Create2,
+			setup: func(mock *MockCallContextInterceptor) {
+				mock.EXPECT().Create2(any, sender, input, gas, value, salt)
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			calls := NewMockCallContextInterceptor(ctrl)
+			test.setup(calls)
+
+			evm := newEVMWithPassingChainConfig()
+			evm.CallInterceptor = calls
+			adapter := &runContextAdapter{evm: evm, caller: sender}
+
+			callArguments := tosca.CallParameters{
+				Recipient:   tosca.Address(recipient),
+				Sender:      tosca.Address(sender),
+				Input:       input,
+				Gas:         tosca.Gas(gas),
+				Value:       tosca.NewValue(value.Uint64()),
+				Salt:        tosca.Hash(tosca.NewValue(salt.Uint64())),
+				CodeAddress: tosca.Address(codeAddress),
+			}
+			_, err := adapter.Call(test.kind, callArguments)
+			require.NoError(t, err, "call should not return an error")
+		})
+	}
+}
+
+func TestGethAdapter_CallReturnsErrorOnUnsupportedRevision(t *testing.T) {
+	chainConfig := &params.ChainConfig{
+		ChainID:       big.NewInt(42),
+		IstanbulBlock: big.NewInt(42),
+	}
+	blockContext := geth.BlockContext{
+		BlockNumber: big.NewInt(24),
+	}
+	evm := geth.NewEVM(blockContext, nil, chainConfig, geth.Config{})
+	adapter := &runContextAdapter{evm: evm}
+	_, err := adapter.Call(tosca.Call, tosca.CallParameters{})
+	require.Error(t, err, "unsupported revision")
+}
+
+func TestGethAdapter_UnknownErrorsFromCallAreForwarded(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	calls := NewMockCallContextInterceptor(ctrl)
+
+	any := gomock.Any()
+	calls.EXPECT().Call(any, any, any, any, any, any).Return(
+		nil, uint64(0), fmt.Errorf("failed"),
+	)
+
+	evm := newEVMWithPassingChainConfig()
+	evm.CallInterceptor = calls
+	adapter := &runContextAdapter{evm: evm}
+	_, err := adapter.Call(tosca.Call, tosca.CallParameters{})
+	require.Error(t, err, "call should return an error")
 }
 
 func TestRunContextAdapter_bigIntToValue(t *testing.T) {
@@ -925,4 +1091,15 @@ func TestGethAdapter_IsPrecompiledContractDependsOnRevision(t *testing.T) {
 		})
 	}
 
+}
+
+func newEVMWithPassingChainConfig() *geth.EVM {
+	chainConfig := &params.ChainConfig{
+		ChainID:       big.NewInt(42),
+		IstanbulBlock: big.NewInt(24),
+	}
+	blockContext := geth.BlockContext{
+		BlockNumber: big.NewInt(24),
+	}
+	return geth.NewEVM(blockContext, nil, chainConfig, geth.Config{})
 }
