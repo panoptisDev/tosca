@@ -330,6 +330,157 @@ func TestRunContextAdapter_SnapshotHandling(t *testing.T) {
 	}
 }
 
+func TestRunContextAdapter_GettersReturnTheCorrectStateDbValues(t *testing.T) {
+	tests := map[string]struct {
+		primingMock  func(stateDb *MockStateDb)
+		want         any
+		functionCall func(adapter *runContextAdapter) any
+	}{
+		"nonce": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().GetNonce(common.Address{0x42}).Return(uint64(42))
+			},
+			want: uint64(42),
+			functionCall: func(adapter *runContextAdapter) any {
+				return adapter.GetNonce(tosca.Address{0x42})
+			},
+		},
+		"storage": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().GetState(common.Address{0x42}, common.Hash{0x10}).Return(common.Hash{1})
+			},
+			want: tosca.Word{1},
+			functionCall: func(adapter *runContextAdapter) any {
+				return adapter.GetStorage(tosca.Address{0x42}, tosca.Key{0x10})
+			},
+		},
+		"committedState": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().GetCommittedState(common.Address{0x42}, common.Hash{0x10}).Return(common.Hash{2})
+			},
+			want: tosca.Word{2},
+			functionCall: func(adapter *runContextAdapter) any {
+				return adapter.GetCommittedStorage(tosca.Address{0x42}, tosca.Key{0x10})
+			},
+		},
+		"transientStorage": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().GetTransientState(common.Address{0x42}, common.Hash{0x10}).Return(common.Hash{3})
+			},
+			want: tosca.Word{3},
+			functionCall: func(adapter *runContextAdapter) any {
+				return adapter.GetTransientStorage(tosca.Address{0x42}, tosca.Key{0x10})
+			},
+		},
+		"balance": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().GetBalance(common.Address{0x42}).Return(uint256.NewInt(100))
+			},
+			want: tosca.NewValue(100),
+			functionCall: func(adapter *runContextAdapter) any {
+				return adapter.GetBalance(tosca.Address{0x42})
+			},
+		},
+		"codeSize": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().GetCodeSize(common.Address{0x42}).Return(42)
+			},
+			want: 42,
+			functionCall: func(adapter *runContextAdapter) any {
+				return adapter.GetCodeSize(tosca.Address{0x42})
+			},
+		},
+		"codeHash": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().GetCodeHash(common.Address{0x42}).Return(common.Hash{4})
+			},
+			want: tosca.Hash{4},
+			functionCall: func(adapter *runContextAdapter) any {
+				return adapter.GetCodeHash(tosca.Address{0x42})
+			},
+		},
+		"code": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().GetCode(common.Address{0x42}).Return(tosca.Code{5, 6, 7})
+			},
+			want: tosca.Code{5, 6, 7},
+			functionCall: func(adapter *runContextAdapter) any {
+				return adapter.GetCode(tosca.Address{0x42})
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			stateDb := NewMockStateDb(ctrl)
+			test.primingMock(stateDb)
+
+			adapter := &runContextAdapter{evm: &geth.EVM{StateDB: stateDb}}
+			got := test.functionCall(adapter)
+
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("Got wrong value %v, expected %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestRunContextAdapter_SettersForwardTheCorrectStateDbValues(t *testing.T) {
+	tests := map[string]struct {
+		primingMock  func(stateDb *MockStateDb)
+		functionCall func(adapter *runContextAdapter)
+	}{
+		"nonce": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().SetNonce(common.Address{0x42}, uint64(42), tracing.NonceChangeUnspecified)
+
+			},
+			functionCall: func(adapter *runContextAdapter) {
+				adapter.SetNonce(tosca.Address{0x42}, 42)
+			},
+		},
+		"storage": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().GetState(common.Address{0x42}, common.Hash{0x10}).Return(common.Hash{0x01})
+				stateDb.EXPECT().GetCommittedState(common.Address{0x42}, common.Hash{0x10}).Return(common.Hash{0x02})
+				stateDb.EXPECT().SetState(common.Address{0x42}, common.Hash{0x10}, common.Hash{0x03})
+			},
+			functionCall: func(adapter *runContextAdapter) {
+				adapter.SetStorage(tosca.Address{0x42}, tosca.Key{0x10}, tosca.Word{0x03})
+			},
+		},
+		"transientStorage": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().SetTransientState(common.Address{0x42}, common.Hash{0x10}, common.Hash{0x03})
+			},
+			functionCall: func(adapter *runContextAdapter) {
+				adapter.SetTransientStorage(tosca.Address{0x42}, tosca.Key{0x10}, tosca.Word{0x03})
+			},
+		},
+		"code": {
+			primingMock: func(stateDb *MockStateDb) {
+				stateDb.EXPECT().SetCode(common.Address{0x42}, []byte{1, 2, 3})
+			},
+			functionCall: func(adapter *runContextAdapter) {
+				adapter.SetCode(tosca.Address{0x42}, []byte{1, 2, 3})
+			},
+		},
+		// "balance" is tested separately
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			stateDb := NewMockStateDb(ctrl)
+			test.primingMock(stateDb)
+
+			adapter := &runContextAdapter{evm: &geth.EVM{StateDB: stateDb}}
+			test.functionCall(adapter)
+		})
+	}
+}
+
 func TestRunContextAdapter_AccountOperations(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	stateDb := NewMockStateDb(ctrl)
