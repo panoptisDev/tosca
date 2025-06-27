@@ -285,7 +285,7 @@ func (a *runContextAdapter) Call(kind tosca.CallKind, parameter tosca.CallParame
 		output, newAddr, returnGas, err = a.evm.Create2(a.caller, parameter.Input, gas, parameter.Value.ToUint256(), vmSalt)
 		createdAddress = tosca.Address(newAddr)
 	default:
-		panic(fmt.Sprintf("unsupported call kind: %v", kind))
+		return tosca.CallResult{}, fmt.Errorf("unknown call kind: %v", kind)
 	}
 
 	// revert errors are not an error in Tosca
@@ -482,8 +482,10 @@ func (a *runContextAdapter) EmitLog(log tosca.Log) {
 	})
 }
 
+// GetLogs is not supported by the runContextAdapter.
+// It returns nil to indicate that no logs are available.
 func (a *runContextAdapter) GetLogs() []tosca.Log {
-	panic("not implemented")
+	return nil
 }
 
 func (a *runContextAdapter) SelfDestruct(addr tosca.Address, beneficiary tosca.Address) bool {

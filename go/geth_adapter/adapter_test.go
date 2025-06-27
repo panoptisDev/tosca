@@ -23,6 +23,7 @@ import (
 	"github.com/0xsoniclabs/tosca/go/tosca"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/ethereum/go-ethereum/core/types"
 	geth "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
@@ -481,6 +482,42 @@ func TestRunContextAdapter_SettersForwardTheCorrectStateDbValues(t *testing.T) {
 	}
 }
 
+func TestRunContextAdapter_LogDataIsCastedCorrectly(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	stateDb := NewMockStateDb(ctrl)
+	blockNumber := big.NewInt(100)
+	evm := &geth.EVM{
+		Context: geth.BlockContext{BlockNumber: blockNumber},
+		StateDB: stateDb,
+	}
+	adapter := &runContextAdapter{evm: evm}
+
+	log := tosca.Log{
+		Address: tosca.Address{0x42},
+		Topics:  []tosca.Hash{{0x01}, {0x02}},
+		Data:    []byte{0x03, 0x04},
+	}
+
+	topics := make([]common.Hash, len(log.Topics))
+	for i, topic := range log.Topics {
+		topics[i] = common.Hash(topic)
+	}
+	stateDb.EXPECT().AddLog(&types.Log{
+		Address:     common.Address(log.Address),
+		Topics:      ([]common.Hash)(topics),
+		Data:        log.Data,
+		BlockNumber: blockNumber.Uint64(),
+	})
+	adapter.EmitLog(log)
+}
+
+func TestRunContextAdapter_GetLogsIsNotSupportedInRunContextAdapter(t *testing.T) {
+	adapter := &runContextAdapter{evm: &geth.EVM{}}
+	if logs := adapter.GetLogs(); logs != nil {
+		t.Errorf("GetLogs is not supported and should return nil, got %v", logs)
+	}
+}
+
 func TestRunContextAdapter_AccountOperations(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	stateDb := NewMockStateDb(ctrl)
@@ -622,6 +659,15 @@ func TestRunContextAdapter_Call_LeftGasOverflowLeadsToZeroGas(t *testing.T) {
 	}
 }
 
+func TestRunContextAdapter_Call_ReturnsErrorForUnknownCallKind(t *testing.T) {
+	evm := newEVMWithPassingChainConfig()
+	adapter := &runContextAdapter{evm: evm}
+
+	callArguments := tosca.CallParameters{}
+	_, err := adapter.Call(tosca.CallKind(-1), callArguments)
+	require.ErrorContains(t, err, "unknown call kind")
+}
+
 func TestRunContextAdapter_getPrevRandaoReturnsHashBasedOnRevision(t *testing.T) {
 	tests := map[string]struct {
 		revision tosca.Revision
@@ -758,6 +804,50 @@ func TestRunContextAdapter_Run(t *testing.T) {
 			}
 			if !success && err == nil {
 				t.Errorf("Expected error, got nil")
+			}
+		})
+	}
+}
+
+func TestRunContextAdapter_MaximumCallDepthIsEnforced(t *testing.T) {
+	// Note that the call depth gets checked before it is incremented,
+	// therefore 1024 is still a valid call depth.
+	tests := map[string]int{
+		"first call":     0,
+		"last call":      1024,
+		"exceeding call": 1025,
+	}
+
+	for name, depth := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			interpreter := tosca.NewMockInterpreter(ctrl)
+			interpreter.EXPECT().Run(gomock.Any()).Return(tosca.Result{Success: true}, nil).AnyTimes()
+			stateDb := NewMockStateDb(ctrl)
+
+			refundShift := uint64(1 << 60)
+			stateDb.EXPECT().AddRefund(refundShift).AnyTimes()
+			stateDb.EXPECT().AddRefund(uint64(0)).AnyTimes()
+			stateDb.EXPECT().GetRefund().Return(refundShift).AnyTimes()
+			stateDb.EXPECT().SubRefund(refundShift).AnyTimes()
+
+			blockParameters := geth.BlockContext{BlockNumber: big.NewInt(int64(24))}
+			chainConfig := &params.ChainConfig{ChainID: big.NewInt(int64(42)), IstanbulBlock: big.NewInt(23)}
+			evm := geth.NewEVM(blockParameters, stateDb, chainConfig, geth.Config{})
+
+			// Set the call depth
+			evm.SetDepth(depth)
+
+			adapter := &gethInterpreterAdapter{
+				evm:         evm,
+				interpreter: interpreter,
+			}
+			contract := geth.NewContract(common.Address{}, common.Address{}, nil, 0, nil)
+			_, err := adapter.Run(contract, []byte{}, false)
+			if depth <= int(params.CallCreateDepth) {
+				require.NoError(t, err, "expected no error for depth %d", depth)
+			} else {
+				require.ErrorContains(t, err, "max call depth exceeded")
 			}
 		})
 	}
