@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -169,27 +170,28 @@ func TestProcessor_EoaCheck(t *testing.T) {
 }
 
 func TestProcessor_BuyGas(t *testing.T) {
-	balance := uint64(1000)
+	balance := uint64(1000000)
 	gasLimit := uint64(100)
 	gasPrice := uint64(2)
+	blobGasPrice := uint64(1)
 
 	transaction := tosca.Transaction{
-		Sender:   tosca.Address{1},
-		GasLimit: tosca.Gas(gasLimit),
+		Sender:     tosca.Address{1},
+		GasLimit:   tosca.Gas(gasLimit),
+		BlobHashes: []tosca.Hash{{0x01}},
 	}
+
+	newBalance := balance - (gasLimit*gasPrice +
+		blobGasPrice*uint64(len(transaction.BlobHashes))*BlobTxBlobGasPerBlob)
 
 	ctrl := gomock.NewController(t)
 	context := tosca.NewMockTransactionContext(ctrl)
 	context.EXPECT().GetBalance(transaction.Sender).Return(tosca.NewValue(balance))
-	context.EXPECT().SetBalance(transaction.Sender, tosca.NewValue(balance-gasLimit*gasPrice))
-	context.EXPECT().GetBalance(transaction.Sender).Return(tosca.NewValue(balance - gasLimit*gasPrice))
+	context.EXPECT().SetBalance(transaction.Sender, tosca.NewValue(newBalance))
 
-	err := buyGas(transaction, context, tosca.NewValue(gasPrice))
+	err := buyGas(transaction, context, tosca.NewValue(gasPrice), tosca.NewValue(blobGasPrice))
 	if err != nil {
 		t.Errorf("buyGas returned an error: %v", err)
-	}
-	if context.GetBalance(transaction.Sender).Cmp(tosca.NewValue(balance-gasLimit*gasPrice)) != 0 {
-		t.Errorf("Sender balance was not decremented correctly")
 	}
 }
 
@@ -207,7 +209,7 @@ func TestProcessor_BuyGasInsufficientBalance(t *testing.T) {
 	context := tosca.NewMockTransactionContext(ctrl)
 	context.EXPECT().GetBalance(transaction.Sender).Return(tosca.NewValue(balance))
 
-	err := buyGas(transaction, context, tosca.NewValue(gasPrice))
+	err := buyGas(transaction, context, tosca.NewValue(gasPrice), tosca.NewValue(0))
 	if err == nil {
 		t.Errorf("buyGas did not fail with insufficient balance")
 	}
@@ -503,4 +505,106 @@ func TestProcessor_AccessListIsNotCreatedIfTransactionHasNone(t *testing.T) {
 	}
 
 	setUpAccessList(transaction, context, tosca.R09_Berlin)
+}
+
+func TestProcessor_blobCheckReturnsErrors(t *testing.T) {
+	tests := map[string]struct {
+		transaction tosca.Transaction
+		blockParams tosca.BlockParameters
+		errorString string
+	}{
+		"valid blob transaction pre cancun": {
+			transaction: tosca.Transaction{
+				Recipient:  &tosca.Address{1},
+				BlobHashes: nil,
+			},
+			blockParams: tosca.BlockParameters{Revision: tosca.R12_Shanghai},
+			errorString: "",
+		},
+		"valid blob transaction cancun": {
+			transaction: tosca.Transaction{
+				Recipient:     &tosca.Address{1},
+				BlobHashes:    []tosca.Hash{{1}},
+				BlobGasFeeCap: tosca.NewValue(10),
+			},
+			blockParams: tosca.BlockParameters{
+				Revision:    tosca.R13_Cancun,
+				BlobBaseFee: tosca.NewValue(1),
+			},
+			errorString: "",
+		},
+		"blob transaction without recipient": {
+			transaction: tosca.Transaction{
+				BlobHashes: []tosca.Hash{{1}},
+			},
+			blockParams: tosca.BlockParameters{Revision: tosca.R13_Cancun},
+			errorString: "blob transaction without recipient",
+		},
+		"blob transaction with empty blob hashes": {
+			transaction: tosca.Transaction{
+				Recipient:  &tosca.Address{1},
+				BlobHashes: []tosca.Hash{},
+			},
+			blockParams: tosca.BlockParameters{Revision: tosca.R13_Cancun},
+			errorString: "missing blob hashes",
+		},
+		"blob transaction with invalid hash version": {
+			transaction: tosca.Transaction{
+				Recipient:  &tosca.Address{1},
+				BlobHashes: []tosca.Hash{{5}},
+			},
+			blockParams: tosca.BlockParameters{Revision: tosca.R12_Shanghai},
+			errorString: "blob with invalid hash version",
+		},
+		"blobGasFeeCap smaller than blobBaseFee": {
+			transaction: tosca.Transaction{
+				Recipient:     &tosca.Address{1},
+				BlobHashes:    []tosca.Hash{{1}},
+				BlobGasFeeCap: tosca.NewValue(100),
+			},
+			blockParams: tosca.BlockParameters{
+				Revision:    tosca.R13_Cancun,
+				BlobBaseFee: tosca.NewValue(200),
+			},
+			errorString: "blobGasFeeCap is lower than blobBaseFee",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := checkBlobs(test.transaction, test.blockParams)
+			if test.errorString != "" {
+				require.ErrorContains(t, err, test.errorString)
+			} else {
+				require.NoError(t, err, "checkBlobs should not return an error")
+			}
+		})
+	}
+}
+
+func TestProcessor_Run_BlobTransactionWithoutBlobsIsUnsuccessful(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	context := tosca.NewMockRunContext(ctrl)
+	interpreter := tosca.NewMockInterpreter(ctrl)
+
+	context.EXPECT().GetNonce(gomock.Any())
+	context.EXPECT().GetCodeHash(gomock.Any())
+
+	blockParameters := tosca.BlockParameters{}
+
+	transaction := tosca.Transaction{
+		Sender:     tosca.Address{1},
+		Recipient:  &tosca.Address{2},
+		GasLimit:   tosca.Gas(1000000),
+		BlobHashes: []tosca.Hash{}, // No blobs but not nil
+	}
+
+	processor := newProcessor(interpreter)
+	result, err := processor.Run(blockParameters, transaction, context)
+	if err != nil {
+		t.Errorf("Run returned an error: %v", err)
+	}
+	if result.Success {
+		t.Errorf("Run should not succeed for blob transaction without blobs")
+	}
 }

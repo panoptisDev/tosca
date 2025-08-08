@@ -28,6 +28,8 @@ const (
 	maxCodeSize          = 24576
 	maxInitCodeSize      = 2 * maxCodeSize
 
+	BlobTxBlobGasPerBlob = 1 << 17 // Gas per blob, introduced in EIP-4844.
+
 	MaxRecursiveDepth = 1024 // Maximum depth of call/create stack.
 )
 
@@ -68,7 +70,11 @@ func (p *processor) Run(
 		return tosca.Receipt{}, nil
 	}
 
-	if err := buyGas(transaction, context, gasPrice); err != nil {
+	if err = checkBlobs(transaction, blockParameters); err != nil {
+		return tosca.Receipt{}, nil
+	}
+
+	if err := buyGas(transaction, context, gasPrice, blockParameters.BlobBaseFee); err != nil {
 		return tosca.Receipt{}, nil
 	}
 
@@ -86,7 +92,7 @@ func (p *processor) Run(
 	transactionParameters := tosca.TransactionParameters{
 		Origin:     transaction.Sender,
 		GasPrice:   gasPrice,
-		BlobHashes: []tosca.Hash{}, // ?
+		BlobHashes: transaction.BlobHashes,
 	}
 
 	runContext := runContext{
@@ -275,8 +281,13 @@ func calculateSetupGas(transaction tosca.Transaction) tosca.Gas {
 	return tosca.Gas(gas)
 }
 
-func buyGas(transaction tosca.Transaction, context tosca.TransactionContext, gasPrice tosca.Value) error {
+func buyGas(transaction tosca.Transaction, context tosca.TransactionContext, gasPrice tosca.Value, blobGasPrice tosca.Value) error {
 	gas := gasPrice.Scale(uint64(transaction.GasLimit))
+
+	if len(transaction.BlobHashes) > 0 {
+		blobFee := blobGasPrice.Scale(uint64(len(transaction.BlobHashes) * BlobTxBlobGasPerBlob))
+		gas = tosca.Add(gas, blobFee)
+	}
 
 	// Buy gas
 	senderBalance := context.GetBalance(transaction.Sender)
@@ -287,5 +298,30 @@ func buyGas(transaction tosca.Transaction, context tosca.TransactionContext, gas
 	senderBalance = tosca.Sub(senderBalance, gas)
 	context.SetBalance(transaction.Sender, senderBalance)
 
+	return nil
+}
+
+func checkBlobs(transaction tosca.Transaction, blockParameters tosca.BlockParameters) error {
+	if transaction.BlobHashes != nil {
+		if transaction.Recipient == nil {
+			return fmt.Errorf("blob transaction without recipient")
+		}
+		if len(transaction.BlobHashes) == 0 {
+			return fmt.Errorf("missing blob hashes")
+		}
+		for _, hash := range transaction.BlobHashes {
+			// Perform kzg4844 valid version check
+			if len(hash) != 32 || hash[0] != 0x01 {
+				return fmt.Errorf("blob with invalid hash version")
+			}
+		}
+
+	}
+
+	if blockParameters.Revision >= tosca.R13_Cancun && len(transaction.BlobHashes) > 0 {
+		if transaction.BlobGasFeeCap.Cmp(blockParameters.BlobBaseFee) < 0 {
+			return fmt.Errorf("blobGasFeeCap is lower than blobBaseFee")
+		}
+	}
 	return nil
 }
