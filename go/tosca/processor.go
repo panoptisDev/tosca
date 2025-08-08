@@ -24,18 +24,29 @@ type Processor interface {
 
 // Transaction summarizes the parameters of a transaction to be executed on a chain.
 type Transaction struct {
-	Sender        Address       // the sender of the transaction, paying for its execution
-	Recipient     *Address      // the receiver of a transaction, nil if a new contract is to be created
-	Nonce         uint64        // the nonce of the sender account, used to prevent replay attacks
-	Input         Data          // the input data for the transaction
-	Value         Value         // the amount of network currency to transfer to the recipient
-	GasLimit      Gas           // the maximum amount of gas that can be used by the transaction
-	GasFeeCap     Value         // the amount of network currency the sender is willing to pay for one gas unit
-	GasTipCap     Value         // the amount of network currency the sender is willing to pay for one unit as a priority fee
-	BlobGasFeeCap Value         // the amount of network currency the sender is willing to pay for blob gas
-	BlobHashes    []Hash        // the hashes of the blobs for this transaction
-	AccessList    []AccessTuple // the list of accounts and storage slots expected to be accessed
+	Sender            Address       // the sender of the transaction, paying for its execution
+	Recipient         *Address      // the receiver of a transaction, nil if a new contract is to be created
+	Nonce             uint64        // the nonce of the sender account, used to prevent replay attacks
+	Input             Data          // the input data for the transaction
+	Value             Value         // the amount of network currency to transfer to the recipient
+	GasLimit          Gas           // the maximum amount of gas that can be used by the transaction
+	GasFeeCap         Value         // the amount of network currency the sender is willing to pay for one gas unit
+	GasTipCap         Value         // the amount of network currency the sender is willing to pay for one unit as a priority fee
+	BlobGasFeeCap     Value         // the amount of network currency the sender is willing to pay for blob gas
+	BlobHashes        []Hash        // the hashes of the blobs for this transaction
+	AccessList        []AccessTuple // the list of accounts and storage slots expected to be accessed
+	AuthorizationList []SetCodeAuthorization
+}
 
+// SetCodeAuthorization contains the information required for EIP-7702 set code transactions to
+// enable externally owned accounts (EOAs) to reference code and execute within their own context.
+type SetCodeAuthorization struct {
+	ChainID Word    // the chain ID for which this authorization is valid
+	Address Address // the target address of the delegation
+	Nonce   uint64  // the nonce of the signer, used to prevent replay
+	V       uint8   // the recovery id of the signature
+	R       Word    // the first value of the signature
+	S       Word    // the second value of the signature
 }
 
 // AccessTuple lists a range of accounts and storage slots expected to be accessed
