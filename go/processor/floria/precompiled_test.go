@@ -16,6 +16,7 @@ import (
 
 	test_utils "github.com/0xsoniclabs/tosca/go/processor"
 	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPrecompiled_RightNumberOfContractsDependingOnRevision(t *testing.T) {
@@ -35,7 +36,7 @@ func TestPrecompiled_RightNumberOfContractsDependingOnRevision(t *testing.T) {
 		count := 0
 		for i := byte(0x01); i < byte(0x42); i++ {
 			address := test_utils.NewAddress(i)
-			_, isPrecompiled := getPrecompiledContract(address, test.revision)
+			isPrecompiled := isPrecompiled(address, test.revision)
 			if isPrecompiled {
 				count++
 			}
@@ -73,13 +74,70 @@ func TestPrecompiled_AddressesAreHandledCorrectly(t *testing.T) {
 				input = test_utils.ValidPointEvaluationInput
 			}
 
-			result, isPrecompiled := handlePrecompiledContract(test.revision, input, test.address, test.gas)
+			isPrecompiled := isPrecompiled(test.address, test.revision)
 			if isPrecompiled != test.isPrecompiled {
-				t.Errorf("unexpected precompiled, want %v, got %v", test.isPrecompiled, isPrecompiled)
+				t.Fatalf("unexpected precompiled, want %v, got %v", test.isPrecompiled, isPrecompiled)
 			}
-			if result.Success != test.success {
-				t.Errorf("unexpected success, want %v, got %v", test.success, result.Success)
+
+			result, err := runPrecompiledContract(test.revision, input, test.address, test.gas)
+			if test.success {
+				require.NoError(t, err)
+				require.True(t, result.Success)
+			} else {
+				require.Error(t, err)
 			}
 		})
 	}
+}
+
+func TestPrecompiled_ErrorsAreHandledCorrectly(t *testing.T) {
+	tests := map[string]struct {
+		address       tosca.Address
+		gas           tosca.Gas
+		expectedError string
+	}{
+		"nonPrecompiled": {
+			tosca.Address{0x20},
+			3000,
+			"precompiled contract not found",
+		},
+		"ecrecover-insufficientGas": {
+			test_utils.NewAddress(0x01), // ecrecover address
+			1,
+			"insufficient gas",
+		},
+		"failing-input": {
+			test_utils.NewAddress(0x0a), // point evaluation address
+			55000,
+			"error executing precompiled contract",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			input := tosca.Data{}
+			result, err := runPrecompiledContract(tosca.R13_Cancun, input, test.address, test.gas)
+			require.ErrorContains(t, err, test.expectedError)
+			require.False(t, result.Success, "expected the result to be unsuccessful due to error")
+			require.Equal(t, tosca.Gas(0), result.GasLeft, "expected gas left to be zero on error")
+		})
+	}
+}
+
+func TestPrecompiled_GasCostOverflowIsDetectedAndHandled(t *testing.T) {
+	// Input data to produce a gas price which overflows int64 in the MODEXP precompiled contract.
+	data := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 32, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255,
+		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		255, 255, 255, 255, 253,
+	}
+
+	modExpAddress := test_utils.NewAddress(0x05)
+	result, err := runPrecompiledContract(tosca.R13_Cancun, tosca.Data(data), modExpAddress, 100)
+	require.ErrorContains(t, err, "gas cost exceeds maximum limit")
+	require.False(t, result.Success, "expected the result to be unsuccessful due to gas cost overflow")
 }
