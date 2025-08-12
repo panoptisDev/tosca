@@ -37,20 +37,30 @@ const (
 )
 
 func init() {
-	tosca.RegisterProcessorFactory("floria", newProcessor)
+	tosca.RegisterProcessorFactory("floria", newFloriaProcessor)
 }
 
-func newProcessor(interpreter tosca.Interpreter) tosca.Processor {
-	return &processor{
-		interpreter: interpreter,
+// newFloriaProcessor creates a new instance of the Floria processor with the given interpreter.
+// This version of Floria is compatible with the Sonic blockchain, but does not support Ethereum.
+// There are 4 differences in the way transactions are handled:
+// - Ignore gasFeeCap
+// - Ignore value transfer in balance check on top level
+// - No update of the coinbase
+// - Consume 10% of the remaining gas
+func newFloriaProcessor(interpreter tosca.Interpreter) tosca.Processor {
+	return &Processor{
+		Interpreter:   interpreter,
+		EthCompatible: false,
 	}
 }
 
-type processor struct {
-	interpreter tosca.Interpreter
+// Processor implements the tosca.Processor interface for the Floria processor.
+type Processor struct {
+	Interpreter   tosca.Interpreter
+	EthCompatible bool
 }
 
-func (p *processor) Run(
+func (p *Processor) Run(
 	blockParameters tosca.BlockParameters,
 	transaction tosca.Transaction,
 	context tosca.TransactionContext,
@@ -73,12 +83,11 @@ func (p *processor) Run(
 		return tosca.Receipt{}, nil
 	}
 
-	if err = checkBlobs(transaction, blockParameters); err != nil {
+	if checkBlobs(transaction, blockParameters) != nil {
 		return tosca.Receipt{}, nil
 	}
 
-	// TODO pass eth compatibility flag.
-	if balanceCheck(gasPrice, transaction, context.GetBalance(transaction.Sender), false) != nil {
+	if balanceCheck(gasPrice, transaction, context.GetBalance(transaction.Sender), p.EthCompatible) != nil {
 		return tosca.Receipt{}, nil
 	}
 
@@ -106,7 +115,7 @@ func (p *processor) Run(
 
 	runContext := runContext{
 		floriaContext{context},
-		p.interpreter,
+		p.Interpreter,
 		blockParameters,
 		transactionParameters,
 		0,
@@ -134,8 +143,12 @@ func (p *processor) Run(
 		createdAddress = &result.CreatedAddress
 	}
 
-	gasLeft := calculateGasLeft(transaction, result, blockParameters.Revision)
+	gasLeft := calculateGasLeft(transaction, result, blockParameters.Revision, p.EthCompatible)
 	refundGas(context, transaction.Sender, gasPrice, gasLeft)
+
+	if p.EthCompatible {
+		paymentToCoinbase(gasPrice, transaction.GasLimit-gasLeft, blockParameters, context)
+	}
 
 	logs := context.GetLogs()
 
@@ -271,11 +284,11 @@ func callParameters(transaction tosca.Transaction, gas tosca.Gas) tosca.CallPara
 	return callParameters
 }
 
-func calculateGasLeft(transaction tosca.Transaction, result tosca.CallResult, revision tosca.Revision) tosca.Gas {
+func calculateGasLeft(transaction tosca.Transaction, result tosca.CallResult, revision tosca.Revision, ethCompatible bool) tosca.Gas {
 	gasLeft := result.GasLeft
 
 	// 10% of remaining gas is charged for non-internal transactions
-	if transaction.Sender != (tosca.Address{}) {
+	if !ethCompatible && transaction.Sender != (tosca.Address{}) {
 		gasLeft -= gasLeft / 10
 	}
 
@@ -347,6 +360,15 @@ func calculateSetupGas(transaction tosca.Transaction, revision tosca.Revision) t
 	}
 
 	return tosca.Gas(gas)
+}
+
+func paymentToCoinbase(gasPrice tosca.Value, gasUsed tosca.Gas, blockParameters tosca.BlockParameters, context tosca.TransactionContext) {
+	effectiveTip := gasPrice
+	if blockParameters.Revision >= tosca.R10_London {
+		effectiveTip = tosca.Sub(gasPrice, blockParameters.BaseFee)
+	}
+	fee := effectiveTip.Scale(uint64(gasUsed))
+	context.SetBalance(blockParameters.Coinbase, tosca.Add(context.GetBalance(blockParameters.Coinbase), fee))
 }
 
 func checkBlobs(transaction tosca.Transaction, blockParameters tosca.BlockParameters) error {
