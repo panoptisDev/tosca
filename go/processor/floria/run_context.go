@@ -38,7 +38,7 @@ func (r runContext) Call(kind tosca.CallKind, parameters tosca.CallParameters) (
 	return r.executeCall(kind, parameters)
 }
 
-func (r runContext) executeCall(kind tosca.CallKind, parameters tosca.CallParameters) (tosca.CallResult, error) {
+func (r runContext) executeCall(kind tosca.CallKind, parameters tosca.CallParameters) (callResult tosca.CallResult, err error) {
 	errResult := tosca.CallResult{
 		Success: false,
 		GasLeft: parameters.Gas,
@@ -54,7 +54,16 @@ func (r runContext) executeCall(kind tosca.CallKind, parameters tosca.CallParame
 			return errResult, nil
 		}
 	}
+
 	snapshot := r.CreateSnapshot()
+	defer func() {
+		// For all returns with an error or an unsuccessful result,
+		// the snapshot will be restored.
+		if err != nil || !callResult.Success {
+			r.RestoreSnapshot(snapshot)
+		}
+	}()
+
 	recipient := parameters.Recipient
 
 	if kind == tosca.StaticCall {
@@ -79,40 +88,31 @@ func (r runContext) executeCall(kind tosca.CallKind, parameters tosca.CallParame
 
 	if kind == tosca.Call && isStateContract {
 		result := runStateContract(r, parameters.Sender, parameters.CodeAddress, parameters.Input, parameters.Gas)
-		if !result.Success {
-			r.RestoreSnapshot(snapshot)
-			result.GasLeft = 0
-		}
 		return result, nil
 	}
 
 	if isPrecompiled {
 		result, err := runPrecompiledContract(r.blockParameters.Revision, parameters.Input, parameters.CodeAddress, parameters.Gas)
 		if err != nil {
-			r.RestoreSnapshot(snapshot)
+			result.Success = false
 		}
 		return result, nil
 	}
 
-	callResult, err := r.runInterpreter(kind, parameters)
-	if err != nil || !callResult.Success {
-		r.RestoreSnapshot(snapshot)
-
-		if !isRevert(callResult, err) {
-			// if the unsuccessful call was due to a revert, the gas is not consumed
-			callResult.GasLeft = 0
-		}
+	result, err := r.runInterpreter(kind, parameters)
+	if err != nil {
+		return tosca.CallResult{}, err
 	}
 
 	return tosca.CallResult{
-		Output:    callResult.Output,
-		GasLeft:   callResult.GasLeft,
-		GasRefund: callResult.GasRefund,
-		Success:   callResult.Success,
-	}, err
+		Output:    result.Output,
+		GasLeft:   result.GasLeft,
+		GasRefund: result.GasRefund,
+		Success:   result.Success,
+	}, nil
 }
 
-func (r runContext) executeCreate(kind tosca.CallKind, parameters tosca.CallParameters) (tosca.CallResult, error) {
+func (r runContext) executeCreate(kind tosca.CallKind, parameters tosca.CallParameters) (callResult tosca.CallResult, err error) {
 	errResult := tosca.CallResult{
 		Success: false,
 		GasLeft: parameters.Gas,
@@ -139,6 +139,14 @@ func (r runContext) executeCreate(kind tosca.CallKind, parameters tosca.CallPara
 	// If a check fails the snapshot will be restored and revert all changes on the
 	// created address. The nonce increment of the sender is not impacted.
 	snapshot := r.CreateSnapshot()
+	defer func() {
+		// For all returns with an error or an unsuccessful result,
+		// the snapshot will be restored.
+		if err != nil || !callResult.Success {
+			r.RestoreSnapshot(snapshot)
+		}
+	}()
+
 	r.CreateAccount(createdAddress)
 	r.SetNonce(createdAddress, 1)
 
@@ -146,17 +154,19 @@ func (r runContext) executeCreate(kind tosca.CallKind, parameters tosca.CallPara
 
 	parameters.Recipient = createdAddress
 	result, err := r.runInterpreter(kind, parameters)
-	if err != nil || !result.Success {
-		r.RestoreSnapshot(snapshot)
-
-		if !isRevert(result, err) {
-			// if the unsuccessful create was due to a revert, the result is still returned
-			return tosca.CallResult{}, err
-		}
-		return tosca.CallResult{Output: result.Output, GasLeft: result.GasLeft, CreatedAddress: createdAddress}, nil
+	if err != nil {
+		return tosca.CallResult{}, err
+	}
+	if !result.Success {
+		return tosca.CallResult{
+			Output:         result.Output,
+			GasLeft:        result.GasLeft,
+			GasRefund:      result.GasRefund,
+			CreatedAddress: createdAddress,
+		}, nil
 	}
 
-	result = checkAndDeployCode(result, createdAddress, snapshot, r.blockParameters.Revision, r)
+	result = checkAndDeployCode(result, createdAddress, r.blockParameters.Revision, r)
 
 	return tosca.CallResult{
 		Output:         result.Output,
@@ -230,7 +240,6 @@ func isEmpty(context tosca.TransactionContext, address tosca.Address) bool {
 func checkAndDeployCode(
 	result tosca.Result,
 	createdAddress tosca.Address,
-	snapshot tosca.Snapshot,
 	revision tosca.Revision,
 	context tosca.TransactionContext,
 ) tosca.Result {
@@ -256,7 +265,6 @@ func checkAndDeployCode(
 	if result.Success {
 		context.SetCode(createdAddress, tosca.Code(outCode))
 	} else {
-		context.RestoreSnapshot(snapshot)
 		result.GasLeft = 0
 		result.Output = nil
 	}
@@ -295,13 +303,6 @@ func (r runContext) runInterpreter(kind tosca.CallKind, parameters tosca.CallPar
 	}
 
 	return r.interpreter.Run(interpreterParameters)
-}
-
-func isRevert(result tosca.Result, err error) bool {
-	if err == nil && !result.Success && (result.GasLeft > 0 || len(result.Output) > 0) {
-		return true
-	}
-	return false
 }
 
 func canTransferValue(
