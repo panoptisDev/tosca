@@ -1147,3 +1147,253 @@ func allCallTypes() []tosca.CallKind {
 		tosca.Create2,
 	}
 }
+
+func TestCall_StaticFlagStaysSetInNestedStaticCalls(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	context := tosca.NewMockTransactionContext(ctrl)
+	interpreter := tosca.NewMockInterpreter(ctrl)
+
+	contextDepth0 := runContext{
+		context,
+		interpreter,
+		tosca.BlockParameters{},
+		tosca.TransactionParameters{},
+		0,
+		false,
+	}
+	parameters := tosca.CallParameters{}
+
+	context.EXPECT().GetCodeHash(gomock.Any()).MinTimes(1)
+	context.EXPECT().CreateSnapshot().MinTimes(1)
+	context.EXPECT().GetCode(gomock.Any()).Return([]byte{0x00}).MinTimes(1)
+
+	// The following section performs nested calls of the following structure
+	//
+	//    static call      static call
+	// 0 -------------> 1 -------------> 2
+	// 0                1 <------------- 2
+	// 0                1                2
+	// 0                1      call      2
+	// 0                1 -------------> 2
+	// 0                1 <------------- 2
+	// 0 <------------- 1                2
+
+	interpreter.EXPECT().Run(gomock.Any()).DoAndReturn(func(params tosca.Parameters) (tosca.Result, error) {
+		contextDepth1, ok := params.Context.(runContext)
+		require.True(t, ok, "Context should be of type runContext")
+		require.True(t, contextDepth1.static)
+		require.True(t, params.Static)
+
+		interpreter.EXPECT().Run(gomock.Any()).DoAndReturn(func(nestedParams tosca.Parameters) (tosca.Result, error) {
+			contextDepth2, ok := nestedParams.Context.(runContext)
+			require.True(t, ok, "Context should be of type runContext")
+			require.True(t, contextDepth2.static)
+			require.True(t, nestedParams.Static)
+			return tosca.Result{Success: true}, nil
+		})
+		// Nested static call
+		_, err := params.Context.Call(tosca.StaticCall, parameters)
+		require.Nil(t, err, "Call should not return an error")
+		require.True(t, params.Static, "Static flag should be set after nested static call inside of static call")
+
+		interpreter.EXPECT().Run(gomock.Any()).DoAndReturn(func(nestedParams tosca.Parameters) (tosca.Result, error) {
+			contextDepth2, ok := nestedParams.Context.(runContext)
+			require.True(t, ok, "Context should be of type runContext")
+			require.True(t, contextDepth2.static)
+			require.True(t, nestedParams.Static)
+			return tosca.Result{Success: true}, nil
+		})
+		// Nested call should remain static
+		_, err = params.Context.Call(tosca.Call, parameters)
+		require.Nil(t, err, "Call should not return an error")
+		require.True(t, contextDepth1.static, "Static flag should be set after nested call inside of static call")
+
+		return tosca.Result{Success: true}, nil
+	})
+
+	// Top level static call
+	_, err := contextDepth0.Call(tosca.StaticCall, parameters)
+	require.Nil(t, err, "Call should not return an error")
+	require.False(t, contextDepth0.static, "Static flag should be reset after top level static call")
+}
+
+func TestCall_StaticCallIsResetAfterStaticCall(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	context := tosca.NewMockTransactionContext(ctrl)
+	interpreter := tosca.NewMockInterpreter(ctrl)
+
+	contextDepth0 := runContext{
+		context,
+		interpreter,
+		tosca.BlockParameters{},
+		tosca.TransactionParameters{},
+		0,
+		false,
+	}
+	parameters := tosca.CallParameters{}
+
+	context.EXPECT().GetCodeHash(gomock.Any()).MinTimes(1)
+	context.EXPECT().CreateSnapshot().MinTimes(1)
+	context.EXPECT().GetCode(gomock.Any()).Return([]byte{0x00}).MinTimes(1)
+
+	// The following mocks performs nested calls of the following structure
+	//
+	//        call         static call
+	// 0 -------------> 1 -------------> 2
+	// 0                1 <------------- 2
+	// 0                1                2
+	// 0                1      call      2
+	// 0                1 -------------> 2
+	// 0                1 <------------- 2
+	// 0 <------------- 1                2
+
+	interpreter.EXPECT().Run(gomock.Any()).DoAndReturn(func(params tosca.Parameters) (tosca.Result, error) {
+		contextDepth1, ok := params.Context.(runContext)
+		require.True(t, ok, "Context should be of type runContext")
+		require.False(t, contextDepth1.static)
+		require.False(t, params.Static)
+
+		interpreter.EXPECT().Run(gomock.Any()).DoAndReturn(func(nestedParams tosca.Parameters) (tosca.Result, error) {
+			contextDepth2, ok := nestedParams.Context.(runContext)
+			require.True(t, ok, "Context should be of type runContext")
+			require.True(t, contextDepth2.static)
+			require.True(t, nestedParams.Static)
+			return tosca.Result{Success: true}, nil
+		})
+		// Nested static call
+		_, err := params.Context.Call(tosca.StaticCall, parameters)
+		require.Nil(t, err, "Call should not return an error")
+		require.False(t, params.Static, "Static flag should not be set after nested static call inside of call")
+
+		interpreter.EXPECT().Run(gomock.Any()).DoAndReturn(func(nestedParams tosca.Parameters) (tosca.Result, error) {
+			contextDepth2, ok := nestedParams.Context.(runContext)
+			require.True(t, ok, "Context should be of type runContext")
+			require.False(t, contextDepth2.static)
+			require.False(t, nestedParams.Static)
+			return tosca.Result{Success: true}, nil
+		})
+		// Nested call
+		_, err = params.Context.Call(tosca.Call, parameters)
+		require.Nil(t, err, "Call should not return an error")
+		require.False(t, params.Static, "Static flag should not be set after nested call inside of call")
+
+		return tosca.Result{Success: true}, nil
+	})
+
+	// Top level static call
+	_, err := contextDepth0.Call(tosca.Call, parameters)
+	require.Nil(t, err, "Call should not return an error")
+	require.False(t, contextDepth0.static, "Static flag should not be set after top level call")
+}
+
+func TestRunContext_DepthHasTheCorrectValueInsideNestedCalls(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	context := tosca.NewMockTransactionContext(ctrl)
+	interpreter := tosca.NewMockInterpreter(ctrl)
+
+	contextDepth0 := runContext{
+		context,
+		interpreter,
+		tosca.BlockParameters{},
+		tosca.TransactionParameters{},
+		0,
+		false,
+	}
+	parameters := tosca.CallParameters{}
+
+	context.EXPECT().GetCodeHash(gomock.Any()).MinTimes(1)
+	context.EXPECT().CreateSnapshot().MinTimes(1)
+	context.EXPECT().GetCode(gomock.Any()).Return([]byte{0x00}).MinTimes(1)
+
+	// The following mocks performs nested calls of the following structure
+	//
+	//        call             call
+	// 0 -------------> 1 -------------> 2
+	// 0                1 <------------- 2
+	// 0                1                2
+	// 0                1      call      2
+	// 0                1 -------------> 2
+	// 0                1 <------------- 2
+	// 0 <------------- 1                2
+
+	interpreter.EXPECT().Run(gomock.Any()).DoAndReturn(func(params tosca.Parameters) (tosca.Result, error) {
+		contextDepth1, ok := params.Context.(runContext)
+		require.True(t, ok, "Context should be of type runContext")
+		require.Equal(t, 1, contextDepth1.depth, "Depth should be 1 in first call")
+
+		// Nested call
+		interpreter.EXPECT().Run(gomock.Any()).DoAndReturn(func(nestedParams tosca.Parameters) (tosca.Result, error) {
+			contextDepth2, ok := nestedParams.Context.(runContext)
+			require.True(t, ok, "Context should be of type runContext")
+			require.Equal(t, 2, contextDepth2.depth, "Depth should be 2 in nested call")
+
+			return tosca.Result{Success: true}, nil
+		})
+		_, err := params.Context.Call(tosca.Call, parameters)
+		require.Nil(t, err, "Call should not return an error")
+		require.Equal(t, 1, contextDepth1.depth, "Depth should be reset to 1 after nested call")
+
+		// Nested call
+		interpreter.EXPECT().Run(gomock.Any()).DoAndReturn(func(nestedParams tosca.Parameters) (tosca.Result, error) {
+			contextDepth2, ok := nestedParams.Context.(runContext)
+			require.True(t, ok, "Context should be of type runContext")
+			require.Equal(t, 2, contextDepth2.depth, "Depth should be 2 in nested call")
+
+			return tosca.Result{Success: true}, nil
+		})
+		_, err = params.Context.Call(tosca.Call, parameters)
+		require.Nil(t, err, "Call should not return an error")
+		require.Equal(t, 1, contextDepth1.depth, "Depth should be reset to 1 after nested call")
+
+		return tosca.Result{Success: true}, nil
+	})
+
+	// Top level call
+	_, err := contextDepth0.Call(tosca.Call, parameters)
+	require.Nil(t, err, "Call should not return an error")
+	require.Equal(t, 0, contextDepth0.depth, "Depth should be reset to 0 after top level call")
+}
+
+func TestRunContext_IncrementDepth(t *testing.T) {
+	tests := map[string]struct {
+		pre           int
+		post          int
+		expectedError error
+	}{
+		"zero": {
+			pre:           0,
+			post:          1,
+			expectedError: nil,
+		},
+		"one": {
+			pre:           1,
+			post:          2,
+			expectedError: nil,
+		},
+		"last": {
+			pre:           MaxRecursiveDepth,
+			post:          MaxRecursiveDepth + 1,
+			expectedError: nil,
+		},
+		"max": {
+			pre:           MaxRecursiveDepth + 1,
+			expectedError: fmt.Errorf("max recursive depth reached"),
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			runCtx := runContext{
+				depth: test.pre,
+			}
+
+			err := runCtx.incrementDepth()
+			if test.expectedError != nil {
+				require.ErrorContains(t, err, test.expectedError.Error())
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, test.post, runCtx.depth)
+			}
+		})
+	}
+}
