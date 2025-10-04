@@ -8,7 +8,7 @@
 // On the date above, in accordance with the Business Source License, use of
 // this software will be governed by the GNU Lesser General Public License v3.
 
-module github.com/0xsoniclabs/tosca
+module github.com/panoptisDev/tosca
 
 go 1.24.0
 
@@ -68,6 +68,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/ethereum/go-ethereum => github.com/0xsoniclabs/go-ethereum v0.0.0-20250827114033-a49cee8740d2
+replace github.com/ethereum/go-ethereum => github.com/panoptisDev/go-ethereum v0.0.0-20250827114033-a49cee8740d2
 
 replace github.com/ethereum/evmc/v11 => ./third_party/evmc
