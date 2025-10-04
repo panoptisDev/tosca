@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -15,12 +15,12 @@ import (
 	"slices"
 	"strings"
 
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/evmone"
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/evmrs"
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/evmzero"
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/geth"
-	"github.com/0xsoniclabs/tosca/go/interpreter/lfvm"
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	_ "github.com/panoptisDev/tosca/go/interpreter/evmone"
+	_ "github.com/panoptisDev/tosca/go/interpreter/evmrs"
+	_ "github.com/panoptisDev/tosca/go/interpreter/evmzero"
+	_ "github.com/panoptisDev/tosca/go/interpreter/geth"
+	"github.com/panoptisDev/tosca/go/interpreter/lfvm"
+	"github.com/panoptisDev/tosca/go/tosca"
 	"golang.org/x/exp/maps"
 )
 

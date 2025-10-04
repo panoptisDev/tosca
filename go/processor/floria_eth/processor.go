@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -11,8 +11,8 @@
 package floria_eth
 
 import (
-	"github.com/0xsoniclabs/tosca/go/processor/floria"
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/processor/floria"
+	"github.com/panoptisDev/tosca/go/tosca"
 )
 
 func init() {
@@ -22,7 +22,7 @@ func init() {
 
 // newFloriaProcessor creates a new instance of the Floria processor with the given interpreter.
 // This version of Floria is compatible with the Ethereum blockchain, but does not support
-// Sonic.
+// Pano.
 func newFloriaEthProcessor(interpreter tosca.Interpreter) tosca.Processor {
 	return &floria.Processor{
 		Interpreter:   interpreter,

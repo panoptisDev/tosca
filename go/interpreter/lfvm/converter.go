@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -14,10 +14,10 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/0xsoniclabs/tosca/go/ct/common"
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/ct/common"
+	"github.com/panoptisDev/tosca/go/tosca"
 
-	"github.com/0xsoniclabs/tosca/go/tosca/vm"
+	"github.com/panoptisDev/tosca/go/tosca/vm"
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 

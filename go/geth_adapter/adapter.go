@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/tosca"
 	common "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -586,7 +586,7 @@ func isPrecompiledContract(recipient tosca.Address, revision tosca.Revision) boo
 		precompiles = geth.PrecompiledContractsCancun
 	case tosca.R12_Shanghai, tosca.R11_Paris, tosca.R10_London, tosca.R09_Berlin:
 		precompiles = geth.PrecompiledContractsBerlin
-	default: // Istanbul is the oldest revision supported by Sonic
+	default: // Istanbul is the oldest revision supported by Pano
 		precompiles = geth.PrecompiledContractsIstanbul
 	}
 

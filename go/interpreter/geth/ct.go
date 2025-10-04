@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -13,12 +13,12 @@ package geth
 import (
 	"fmt"
 
-	"github.com/0xsoniclabs/tosca/go/ct"
-	"github.com/0xsoniclabs/tosca/go/ct/common"
-	"github.com/0xsoniclabs/tosca/go/ct/st"
-	"github.com/0xsoniclabs/tosca/go/ct/utils"
-	"github.com/0xsoniclabs/tosca/go/geth_adapter"
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/ct"
+	"github.com/panoptisDev/tosca/go/ct/common"
+	"github.com/panoptisDev/tosca/go/ct/st"
+	"github.com/panoptisDev/tosca/go/ct/utils"
+	"github.com/panoptisDev/tosca/go/geth_adapter"
+	"github.com/panoptisDev/tosca/go/tosca"
 	geth_common "github.com/ethereum/go-ethereum/common"
 	geth_vm "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"

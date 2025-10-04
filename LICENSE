@@ -1,13 +1,13 @@
-License text copyright (c) 2025 Sonic Operations Ltd, All Rights Reserved.
+License text copyright (c) 2025 Pano Operations Ltd, All Rights Reserved.
 “Business Source License” is a trademark of MariaDB plc.
 
 Parameters
 
-Licensor:             Sonic Operations Ltd
-Licensed Work:        Tosca / Sonic (TM) version 1.0.0
-                      The Licensed Work is (c) 2025 Sonic Operations Ltd
+Licensor:             Pano Operations Ltd
+Licensed Work:        Tosca / Pano (TM) version 1.0.0
+                      The Licensed Work is (c) 2025 Pano Operations Ltd
 Additional Use Grant: You may commercially use the Licensed Work for nodes running
-                      on the Sonic test and main net.
+                      on the Pano test and main net.
     
 Change Date:          2028-4-16
 
@@ -16,7 +16,7 @@ Change License:       Version 3 or later of the GNU Lesser General Public Licens
 
 
 For information about alternative licensing arrangements for the Software,
-please visit: https://soniclabs/products/tosca
+please visit: https://panoptisDev/products/tosca
 
 Notice
 

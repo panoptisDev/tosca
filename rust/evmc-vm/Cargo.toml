@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-evmc-sys = { git = "https://github.com/0xsoniclabs/evmc", branch = "tosca-extensions" }
+evmc-sys = { git = "https://github.com/panoptisDev/evmc", branch = "tosca-extensions" }

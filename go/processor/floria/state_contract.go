@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -16,7 +16,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/tosca"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -85,7 +85,7 @@ func isStateContract(address tosca.Address) bool {
 
 // runStateContract has originally been introduced for the Fantom chain.
 // It is used to handle epochs and allows to set balance, copy code, swap code, set storage, and increment nonce.
-// Source: https://github.com/Fantom-foundation/Sonic/blob/main/opera/contracts/evmwriter/evm_writer.go#L24
+// Source: https://github.com/panoptisDev/Pano/blob/main/opera/contracts/evmwriter/evm_writer.go#L24
 func runStateContract(
 	state tosca.WorldState,
 	sender tosca.Address,

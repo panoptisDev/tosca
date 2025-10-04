@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -17,15 +17,15 @@ import (
 	"slices"
 	"strings"
 
-	. "github.com/0xsoniclabs/tosca/go/ct/common"
-	"github.com/0xsoniclabs/tosca/go/tosca"
-	"github.com/0xsoniclabs/tosca/go/tosca/vm"
+	. "github.com/panoptisDev/tosca/go/ct/common"
+	"github.com/panoptisDev/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/tosca/vm"
 )
 
 // MaxGasUsedByCt is an upper bound for gas, this limit is required since
 // evmc defines a signed type for gas.
 // Limiting gas also solves issue 293 regarding out of memory failures,
-// discussed here: https://github.com/0xsoniclabs/tosca/issues/293
+// discussed here: https://github.com/panoptisDev/tosca/issues/293
 // The costs for buying memory in an EVM instance is defined by
 //
 //	C(W) = W^2/512 + 3*W

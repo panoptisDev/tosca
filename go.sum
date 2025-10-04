@@ -1,5 +1,5 @@
-github.com/0xsoniclabs/go-ethereum v0.0.0-20250827114033-a49cee8740d2 h1:OHaJBUO/R6SOHCDNMskfnakEz59bo1fl7Tmz73GCUnA=
-github.com/0xsoniclabs/go-ethereum v0.0.0-20250827114033-a49cee8740d2/go.mod h1:pm9P/VM1zE+1AQPGpoCEaA/0sbu7GFNex/nyjjPRcrU=
+github.com/panoptisDev/go-ethereum v0.0.0-20250827114033-a49cee8740d2 h1:OHaJBUO/R6SOHCDNMskfnakEz59bo1fl7Tmz73GCUnA=
+github.com/panoptisDev/go-ethereum v0.0.0-20250827114033-a49cee8740d2/go.mod h1:pm9P/VM1zE+1AQPGpoCEaA/0sbu7GFNex/nyjjPRcrU=
 github.com/DataDog/zstd v1.4.5 h1:EndNeuB0l9syBZhut0wns3gV1hL8zX8LIu6ZiVHWLIQ=
 github.com/DataDog/zstd v1.4.5/go.mod h1:1jcaCB/ufaK+sKp1NBhlGmpz41jOoPQ35bpF36t7BBo=
 github.com/StackExchange/wmi v1.2.1 h1:VIkavFPXSjcnS+O8yTq7NI32k0R5Aj+v39y29VYDOSA=

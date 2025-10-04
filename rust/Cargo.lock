@@ -461,7 +461,7 @@ checksum = "0939f82868b77ef93ce3c3c3daf2b3c526b456741da5a1a4559e590965b6026b"
 [[package]]
 name = "evmc-sys"
 version = "12.1.0"
-source = "git+https://github.com/0xsoniclabs/evmc?branch=tosca-extensions#c35b27c8dface5fd3e6801dbbd3271930c8a1d9e"
+source = "git+https://github.com/panoptisDev/evmc?branch=tosca-extensions#c35b27c8dface5fd3e6801dbbd3271930c8a1d9e"
 dependencies = [
  "bindgen",
 ]

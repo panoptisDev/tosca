@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -14,9 +14,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/0xsoniclabs/tosca/go/examples"
-	"github.com/0xsoniclabs/tosca/go/lib/rust"
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/examples"
+	"github.com/panoptisDev/tosca/go/lib/rust"
+	"github.com/panoptisDev/tosca/go/tosca"
 	"go.uber.org/mock/gomock"
 	// Enable this import to see C/C++ symbols in CPU profile data.
 	// This import is commented out because it would affect all binaries this

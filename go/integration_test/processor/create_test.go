@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -17,8 +17,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/0xsoniclabs/tosca/go/tosca"
-	"github.com/0xsoniclabs/tosca/go/tosca/vm"
+	"github.com/panoptisDev/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/tosca/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -493,7 +493,7 @@ func TestProcessor_CreateExistingAccountFails(t *testing.T) {
 			success: true,
 		},
 
-		// Different to ethereum, on Sonic accounts can only have set storage if their nonce != 0
+		// Different to ethereum, on Pano accounts can only have set storage if their nonce != 0
 		"withStorage": {
 			account: Account{Nonce: 1, Storage: storageWithEntry},
 			success: false,

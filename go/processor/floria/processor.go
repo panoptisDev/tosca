@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/tosca"
 	"github.com/holiman/uint256"
 )
 
@@ -41,7 +41,7 @@ func init() {
 }
 
 // newFloriaProcessor creates a new instance of the Floria processor with the given interpreter.
-// This version of Floria is compatible with the Sonic blockchain, but does not support Ethereum.
+// This version of Floria is compatible with the Pano blockchain, but does not support Ethereum.
 // There are 4 differences in the way transactions are handled:
 // - Ignore gasFeeCap
 // - Ignore value transfer in balance check on top level

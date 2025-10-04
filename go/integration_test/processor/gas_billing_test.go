@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -14,14 +14,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/0xsoniclabs/tosca/go/tosca"
-	"github.com/0xsoniclabs/tosca/go/tosca/vm"
+	"github.com/panoptisDev/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/tosca/vm"
 	op "github.com/ethereum/go-ethereum/core/vm"
 	"go.uber.org/mock/gomock"
 
-	_ "github.com/0xsoniclabs/tosca/go/processor/floria" // < registers floria processor for testing
-	_ "github.com/0xsoniclabs/tosca/go/processor/geth"   // < registers geth processor for testing
-	_ "github.com/0xsoniclabs/tosca/go/processor/opera"  // < registers opera processor for testing
+	_ "github.com/panoptisDev/tosca/go/processor/floria" // < registers floria processor for testing
+	_ "github.com/panoptisDev/tosca/go/processor/geth"   // < registers geth processor for testing
+	_ "github.com/panoptisDev/tosca/go/processor/opera"  // < registers opera processor for testing
 )
 
 func TestProcessor_GasBillingEndToEnd(t *testing.T) {

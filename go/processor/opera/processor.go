@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -11,7 +11,7 @@
 package geth
 
 // The processor implementation in this file is a rough copy of the processor
-// code that is used by Aida to run transactions using the Opera/Sonic
+// code that is used by Aida to run transactions using the Opera/Pano
 // implementation of the Ethereum Virtual Machine (EVM). The code is copied
 // here to provide a reference implementation for the Tosca EVM implementation.
 
@@ -23,9 +23,9 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/0xsoniclabs/tosca/go/geth_adapter"
-	geth_interpreter "github.com/0xsoniclabs/tosca/go/interpreter/geth"
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/geth_adapter"
+	geth_interpreter "github.com/panoptisDev/tosca/go/interpreter/geth"
+	"github.com/panoptisDev/tosca/go/tosca"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -163,9 +163,9 @@ func (p *processor) Run(
 
 	// -- start of execution --
 
-	// This code is required to mimic the behavior of Sonic's
+	// This code is required to mimic the behavior of Pano's
 	// evmcore transaction handling function. For reference, see:
-	// https://github.com/Fantom-foundation/Sonic/blob/1819a05c9dc1081d24a71f93ec140eb674618967/evmcore/state_transition.go#L255
+	// https://github.com/panoptisDev/Pano/blob/1819a05c9dc1081d24a71f93ec140eb674618967/evmcore/state_transition.go#L255
 
 	// First check this message satisfies all consensus rules before
 	// applying the message. The rules include these clauses
@@ -424,7 +424,7 @@ func isInternal(transaction tosca.Transaction) bool {
 	return transaction.Sender == tosca.Address{}
 }
 
-// Source: https://github.com/Fantom-foundation/Sonic/blob/main/opera/contracts/evmwriter/evm_writer.go#L24
+// Source: https://github.com/panoptisDev/Pano/blob/main/opera/contracts/evmwriter/evm_writer.go#L24
 
 // driverAddress is the NodeDriver contract address
 var driverAddress = common.HexToAddress("0xd100a01e00000000000000000000000000000000")
@@ -468,9 +468,9 @@ func init() {
 
 // preCompiledStateContract is a Fantom specific pre-compiled contract that enables
 // arbitrary state manipulation for book-keeping and testing purposes.
-// It is copied here to avoid a dependency to the Sonic project, which would risk
+// It is copied here to avoid a dependency to the Pano project, which would risk
 // substantial dependency issues in down-stream projects.
-// Source: https://github.com/Fantom-foundation/Sonic/blob/34b607b882eca12fe25cfc28cbcfa869def6d3f3/opera/contracts/evmwriter/evm_writer.go#L54
+// Source: https://github.com/panoptisDev/Pano/blob/34b607b882eca12fe25cfc28cbcfa869def6d3f3/opera/contracts/evmwriter/evm_writer.go#L54
 type preCompiledStateContract struct{}
 
 func (preCompiledStateContract) Run(

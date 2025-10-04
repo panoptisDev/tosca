@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -15,19 +15,19 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/0xsoniclabs/tosca/go/tosca"
-	"github.com/0xsoniclabs/tosca/go/tosca/vm"
+	"github.com/panoptisDev/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/tosca/vm"
 	"github.com/ethereum/go-ethereum/common"
 	op "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"golang.org/x/exp/maps"
 
-	_ "github.com/0xsoniclabs/tosca/go/processor/floria" // < registers floria processor for testing
-	_ "github.com/0xsoniclabs/tosca/go/processor/geth"   // < registers geth processor for testing
-	_ "github.com/0xsoniclabs/tosca/go/processor/opera"  // < registers opera processor for testing
+	_ "github.com/panoptisDev/tosca/go/processor/floria" // < registers floria processor for testing
+	_ "github.com/panoptisDev/tosca/go/processor/geth"   // < registers geth processor for testing
+	_ "github.com/panoptisDev/tosca/go/processor/opera"  // < registers opera processor for testing
 
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/evmzero" // < registers evmzero interpreter for testing
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/lfvm"    // < registers lfvm interpreter for testing
+	_ "github.com/panoptisDev/tosca/go/interpreter/evmzero" // < registers evmzero interpreter for testing
+	_ "github.com/panoptisDev/tosca/go/interpreter/lfvm"    // < registers lfvm interpreter for testing
 )
 
 // This file contains a few initial shake-down tests or a Processor implementation.
@@ -222,7 +222,7 @@ func TestGetProcessors_ContainsMainConfigurations(t *testing.T) {
 	wanted := []string{
 		"opera/geth", "opera/lfvm", "opera/evmzero",
 		"floria/geth", "floria/lfvm", "floria/evmzero",
-		"geth-sonic/geth", "geth-sonic/lfvm", "geth-sonic/evmzero",
+		"geth-pano/geth", "geth-pano/lfvm", "geth-pano/evmzero",
 	}
 	for _, n := range wanted {
 		if !slices.Contains(all, n) {

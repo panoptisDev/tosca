@@ -1,7 +1,7 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
-// in the LICENSE file and at soniclabs.com/bsl11.
+// in the LICENSE file and at panoptisDev.com/bsl11.
 //
 // Change Date: 2028-4-16
 //
@@ -10,7 +10,7 @@
 
 package gen
 
-import "github.com/0xsoniclabs/tosca/go/ct/common"
+import "github.com/panoptisDev/tosca/go/ct/common"
 
 // ErrUnsatisfiable is an error returned by generators if constraints
 // are not satisfiable.
