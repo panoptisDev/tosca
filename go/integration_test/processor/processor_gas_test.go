@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
 // in the LICENSE file and at soniclabs.com/bsl11.
@@ -15,8 +15,8 @@ import (
 	"maps"
 	"testing"
 
-	"github.com/0xsoniclabs/tosca/go/processor/floria"
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/processor/floria"
+	"github.com/panoptisDev/tosca/go/tosca"
 	op "github.com/ethereum/go-ethereum/core/vm"
 )
 

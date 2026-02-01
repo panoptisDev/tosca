@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
 // in the LICENSE file and at soniclabs.com/bsl11.
@@ -19,10 +19,10 @@ import (
 
 	"pgregory.net/rand"
 
-	. "github.com/0xsoniclabs/tosca/go/ct/common"
-	"github.com/0xsoniclabs/tosca/go/ct/st"
-	"github.com/0xsoniclabs/tosca/go/tosca"
-	"github.com/0xsoniclabs/tosca/go/tosca/vm"
+	. "github.com/panoptisDev/tosca/go/ct/common"
+	"github.com/panoptisDev/tosca/go/ct/st"
+	"github.com/panoptisDev/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/tosca/vm"
 )
 
 // StateGenerator is a utility class for generating States. It provides two

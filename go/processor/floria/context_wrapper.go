@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
 // in the LICENSE file and at soniclabs.com/bsl11.
@@ -10,7 +10,7 @@
 
 package floria
 
-import "github.com/0xsoniclabs/tosca/go/tosca"
+import "github.com/panoptisDev/tosca/go/tosca"
 
 // floriaContext is a wrapper around the tosca.TransactionContext
 // that adds the balance transfer to the selfdestruct function

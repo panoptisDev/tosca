@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
 // in the LICENSE file and at soniclabs.com/bsl11.
@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0xsoniclabs/tosca/go/ct/gen"
-	"github.com/0xsoniclabs/tosca/go/ct/rlz"
-	"github.com/0xsoniclabs/tosca/go/ct/st"
+	"github.com/panoptisDev/tosca/go/ct/gen"
+	"github.com/panoptisDev/tosca/go/ct/rlz"
+	"github.com/panoptisDev/tosca/go/ct/st"
 )
 
 // Test condition used for state enumeration tests

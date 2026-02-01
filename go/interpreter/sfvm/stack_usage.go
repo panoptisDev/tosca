@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
 // in the LICENSE file and at soniclabs.com/bsl11.
@@ -10,7 +10,7 @@
 
 package sfvm
 
-import "github.com/0xsoniclabs/tosca/go/tosca/vm"
+import "github.com/panoptisDev/tosca/go/tosca/vm"
 
 // stackUsage defines the combined effect of an instruction on the stack. Each
 // instruction is accessing a range of elements on the stack relative to the

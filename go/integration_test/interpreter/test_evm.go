@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
 // in the LICENSE file and at soniclabs.com/bsl11.
@@ -11,11 +11,11 @@
 package interpreter_test
 
 import (
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/evmone"
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/evmzero"
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/lfvm"
-	_ "github.com/0xsoniclabs/tosca/go/interpreter/sfvm"
-	"github.com/0xsoniclabs/tosca/go/tosca"
+	_ "github.com/panoptisDev/tosca/go/interpreter/evmone"
+	_ "github.com/panoptisDev/tosca/go/interpreter/evmzero"
+	_ "github.com/panoptisDev/tosca/go/interpreter/lfvm"
+	_ "github.com/panoptisDev/tosca/go/interpreter/sfvm"
+	"github.com/panoptisDev/tosca/go/tosca"
 )
 
 //go:generate mockgen -source test_evm.go -destination test_evm_mock.go -package interpreter_test

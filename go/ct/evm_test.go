@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
 // in the LICENSE file and at soniclabs.com/bsl11.
@@ -15,18 +15,18 @@ import (
 
 	"pgregory.net/rand"
 
-	"github.com/0xsoniclabs/tosca/go/ct"
-	. "github.com/0xsoniclabs/tosca/go/ct/common"
-	"github.com/0xsoniclabs/tosca/go/ct/gen"
-	. "github.com/0xsoniclabs/tosca/go/ct/rlz"
-	"github.com/0xsoniclabs/tosca/go/ct/spc"
-	"github.com/0xsoniclabs/tosca/go/ct/st"
-	"github.com/0xsoniclabs/tosca/go/interpreter/evmzero"
-	"github.com/0xsoniclabs/tosca/go/interpreter/geth"
-	"github.com/0xsoniclabs/tosca/go/interpreter/lfvm"
-	"github.com/0xsoniclabs/tosca/go/interpreter/sfvm"
-	"github.com/0xsoniclabs/tosca/go/tosca"
-	"github.com/0xsoniclabs/tosca/go/tosca/vm"
+	"github.com/panoptisDev/tosca/go/ct"
+	. "github.com/panoptisDev/tosca/go/ct/common"
+	"github.com/panoptisDev/tosca/go/ct/gen"
+	. "github.com/panoptisDev/tosca/go/ct/rlz"
+	"github.com/panoptisDev/tosca/go/ct/spc"
+	"github.com/panoptisDev/tosca/go/ct/st"
+	"github.com/panoptisDev/tosca/go/interpreter/evmzero"
+	"github.com/panoptisDev/tosca/go/interpreter/geth"
+	"github.com/panoptisDev/tosca/go/interpreter/lfvm"
+	"github.com/panoptisDev/tosca/go/interpreter/sfvm"
+	"github.com/panoptisDev/tosca/go/tosca"
+	"github.com/panoptisDev/tosca/go/tosca/vm"
 )
 
 var evms = map[string]ct.Evm{

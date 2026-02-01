@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
 // in the LICENSE file and at soniclabs.com/bsl11.
@@ -23,7 +23,7 @@ import (
 	"github.com/holiman/uint256"
 )
 
-// This file is copied from https://github.com/Fantom-foundation/Sonic/blob/main/opera/contracts/evmwriter/evm_writer.go
+// This file is copied from https://github.com/Fantom-foundation/Pano/blob/main/opera/contracts/evmwriter/evm_writer.go
 // and unchanged to ensure compatibility with the code running in production.
 
 var (

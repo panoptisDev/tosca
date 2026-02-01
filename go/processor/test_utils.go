@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Sonic Operations Ltd
+// Copyright (c) 2025 Pano Operations Ltd
 //
 // Use of this software is governed by the Business Source License included
 // in the LICENSE file and at soniclabs.com/bsl11.
@@ -10,7 +10,7 @@
 
 package test_utils
 
-import "github.com/0xsoniclabs/tosca/go/tosca"
+import "github.com/panoptisDev/tosca/go/tosca"
 
 // ValidPointEvaluationInput is a valid input for point evaluation precompiled contract taken from geth.
 var ValidPointEvaluationInput = []byte{1, 231, 152, 21, 71, 8, 254, 119, 137, 66, 150, 52, 5, 60, 191, 159,
